@@ -5,51 +5,182 @@ Synopsis: Time and date APIs
 // import.  If you find the short names to be in conflict with
 // your code you may wish to import it like this:
 //   use time, prefix: "time-";
-//   use time, import: { <time>, <date>, <timezone> };
+//   use time, import: { <time>, <date>, <month>, <weekday>, <timezone> };
 
-// TODO: on 32-bit platforms import <double-integer> as <integer> for
-// use in both <time> and <duration>
+// TODO:
+//
+// * Decide how/whether to deal with monotonic clocks here.
+//
+// * i18n - ensure that if someone wanted to they could make the days,
+//   months, and date formats display/parse in non-English languages.
+//
+// * Leap seconds.
+//   https://docs.rs/chrono/*/chrono/naive/struct.NaiveTime.html#leap-second-handling
+//
+// * Calender operations / dates / year/month durations.
 
-// Basic accessors
-define generic year   (t :: <time>) => (year :: <integer>);  // 1-...
-define generic month  (t :: <time>) => (month :: <integer>); // 1-12
-define generic day    (t :: <time>) => (day :: <integer>);   // 1-31
-define generic hour   (t :: <time>) => (hour :: <integer>);  // 0-23
-define generic minute (t :: <time>) => (minute :: <integer>); // 0-59
-define generic second (t :: <time>) => (second :: <integer>); // 0-59
-define generic nanosecond (t :: <time>) => (nanosecond :: <integer>);
-define generic timezone (t :: <time>) => (zone :: <timezone>);
-define generic timezone-setter (tz :: <timezone>, t :: <time>) => (tz :: <timezone>);
+// Basic time accessors
+define generic year        (t :: <time>) => (year :: <integer>);  // 1-...
+define generic month       (t :: <time>) => (month :: <integer>); // 1-12
+define generic day         (t :: <time>) => (day :: <integer>);   // 1-31
+define generic hour        (t :: <time>) => (hour :: <integer>);  // 0-23
+define generic minute      (t :: <time>) => (minute :: <integer>); // 0-59
+define generic second      (t :: <time>) => (second :: <integer>); // 0-59
+define generic nanosecond  (t :: <time>) => (nanosecond :: <integer>);
+define generic zone        (t :: <time>) => (zone :: <timezone>);
+define generic zone-setter (z :: <timezone>, t :: <time>) => (z :: <timezone>);
+define generic weekday     (t :: <time>) => (day :: <weekday>);
 
-// ?? not sure the return type here. Maybe just <integer> is better.
-define generic weekday (t :: <time>) => (day :: <weekday>);
+// Decompose `t` into its component parts for presentation.
+define generic decode-time
+    (t :: <time>)
+ => (year :: <integer>, month :: <integer>, day :: <integer>,
+     hour :: <integer>, minute :: <integer>, second :: <integer>,
+     nanosecond :: <integer>, timezone :: <timezone>);
+
+define method decode-time
+    (t :: <time>)
+ => (year :: <integer>, month :: <integer>, day :: <integer>,
+     hour :: <integer>, minute :: <integer>, second :: <integer>,
+     nanosecond :: <integer>, timezone :: <timezone>)
+  let abs :: <integer> = absolute-time(t);
+  let days :: <integer> = floor/(abs, $seconds-per-day);
+  let 
+
+define generic encode-time
+    (year :: <integer>, month :: <integer>, day :: <integer>,
+     hour :: <integer>, minute :: <integer>, second :: <integer>, #key zone)
+ => (d :: <time>);
+
+
+// ===== Weekdays
+
+// Weekday accessors
+define generic weekday-number (w :: <weekday>) => (n :: <integer>);
+define generic weekday-name (w :: <weekday>) => (n :: <string>);
+define generic weekday-short-name (w :: <weekday>) => (n :: <string>);
+
+define class <weekday> (<object>)
+  constant slot weekday-number, required-init-keyword: number:;
+  constant slot weekday-name, required-init-keyword: name:;
+  constant slot weekday-short-name, init-keyword: short:;
+end;
+
+define constant $monday    = make(<weekday>, number: 1, short: "Mon", name: "Monday");
+define constant $tuesday   = make(<weekday>, number: 2, short: "Tue", name: "Tuesday");
+define constant $wednesday = make(<weekday>, number: 3, short: "Wed", name: "Wednesday");
+define constant $thursday  = make(<weekday>, number: 4, short: "Thu", name: "Thursday");
+define constant $friday    = make(<weekday>, number: 5, short: "Fri", name: "Friday");
+define constant $saturday  = make(<weekday>, number: 6, short: "Sat", name: "Saturday");
+define constant $sunday    = make(<weekday>, number: 7, short: "Sun", name: "Sunday");
+
+define constant $days
+  = vector($monday, $tuesday, $wednesday, $thursday, $friday, $saturday, $sunday);
+
+define table $name-to-weekday :: <string-table> = {
+  $monday.day-name    => $monday,
+  $tuesday.day-name   => $tuesday,
+  $wednesday.day-name => $wednesday,
+  $thursday.day-name  => $thursday,
+  $friday.day-name    => $friday,
+  $saturday.day-name  => $saturday,
+  $sunday.day-name    => $sunday
+};
+define table $short-name-to-weekday :: <string-table> = {
+  $monday.day-short-name    => $monday,
+  $tuesday.day-short-name   => $tuesday,
+  $wednesday.day-short-name => $wednesday,
+  $thursday.day-short-name  => $thursday,
+  $friday.day-short-name    => $friday,
+  $saturday.day-short-name  => $saturday,
+  $sunday.day-short-name    => $sunday
+};
+
+
+// ===== Months
+
+define generic month-number     (m :: <month>) => (n :: <integer>);
+define generic month-name       (m :: <month>) => (n :: <string>);
+define generic month-short-name (m :: <month>) => (n :: <string>);
+define generic month-days       (m :: <month>) => (n :: <integer>);
+
+define class <month> (<object>)
+  constant slot month-number :: <integer>,    required-init-keyword: number:;
+  constant slot month-name :: <string>,       required-init-keyword: name:;
+  constant slot month-short-name :: <string>, required-init-keyword: short:;
+  constant slot month-days :: <integer>,      required-init-keyword: days:;
+end;
+  
+define constant $january   = make(<month>, number:  1, short: "Jan", days: 31, name: "January");
+define constant $february  = make(<month>, number:  2, short: "Feb", days: 28, name: "February");
+define constant $march     = make(<month>, number:  3, short: "Mar", days: 31, name: "March");
+define constant $april     = make(<month>, number:  4, short: "Apr", days: 30, name: "April");
+define constant $may       = make(<month>, number:  5, short: "May", days: 31, name: "May");
+define constant $june      = make(<month>, number:  6, short: "Jun", days: 30, name: "June");
+define constant $july      = make(<month>, number:  7, short: "Jul", days: 31, name: "July");
+define constant $august    = make(<month>, number:  8, short: "Aug", days: 31, name: "August");
+define constant $september = make(<month>, number:  9, short: "Sep", days: 30, name: "September");
+define constant $october   = make(<month>, number: 10, short: "Oct", days: 31, name: "October");
+define constant $november  = make(<month>, number: 11, short: "Nov", days: 30, name: "November");
+define constant $december  = make(<month>, number: 12, short: "Dec", days: 31, name: "December");
+
+define constant $months
+  = vector($january, $february, $march, $april, $may, $june, $july,
+           $august, $september, $october, $november, $december);
+                            
+define table $name-to-month :: <string-table> = {
+  $january.month-name => $january,
+  $february.month-name => $february,
+  $march.month-name => $march,
+  $april.month-name => $april,
+  $may.month-name => $may,
+  $june.month-name => $june,
+  $july.month-name => $july,
+  $august.month-name => $august,
+  $september.month-name => $september,
+  $october.month-name => $october,
+  $november.month-name => $november,
+  $december.month-name => $december
+};
+define table $short-name-to-month :: <string-table> = {
+  $january.month-short-name => $january,
+  $february.month-short-name => $february,
+  $march.month-short-name => $march,
+  $april.month-short-name => $april,
+  $may.month-short-name => $may,
+  $june.month-short-name => $june,
+  $july.month-short-name => $july,
+  $august.month-short-name => $august,
+  $september.month-short-name => $september,
+  $october.month-short-name => $october,
+  $november.month-short-name => $november,
+  $december.month-short-name => $december
+};
 
 // Current time and date.
 define generic now () => (t :: <time>);
 define generic today () => (d :: <date>);
 
 // Conversion to/from strings.
-define generic format (t :: <time>, #key pattern) => (s :: <string>);
-define generic parse (s :: <string>, #key pattern, timezone) => (t :: <time>);
+define generic format-time (t :: <time>, #key pattern) => (s :: <string>);
+define generic parse-time (s :: <string>, #key pattern, timezone) => (t :: <time>);
 
 // A <time> represents an instant in time at a specific location (on
 // Earth) to nanosecond precision.
 define class <time> (<object>)
-  slot seconds :: <integer> = 0,      init-keyword: seconds:,     setter: #f;
-  slot nanoseconds :: <integer> = 0,  init-keyword: nanoseconds:, setter: #f;
-  slot timezone :: <timezone> = $utc, init-keyword: timezone:;
-end;
-
-// <date> is simply a <time> with certain restrictions
-// attached. Specifically, hours, minutes, seconds, and nanoseconds
-// are always zero.
-define class <date> (<time>)
+  slot %seconds :: <integer> = 0,      init-keyword: seconds:,     setter: #f;
+  slot %nanoseconds :: <integer> = 0,  init-keyword: nanoseconds:, setter: #f;
+  slot %timezone :: <timezone> = $utc, init-keyword: timezone:;
 end;
 
 // Truncate `t` to the day by zeroing the hours, minutes, seconds, and nanoseconds.
 define method as (class == <date>, t :: <time>) => (d :: <date>)
   // TODO
 end;
+
+define sealed domain \= (<time>, <time>);
+define sealed domain \< (<time>, <time>);
+define sealed domain \- (<time>, <time>); // => <duration>
 
 // Returns true if `t1` and `t2` represent the same time instant. Two
 // times can be equal even if they are in different timezones. For
@@ -61,3 +192,17 @@ define method \= (t1 :: <time>, t2 :: <time>) => (b :: <boolean>)
     & utc1.nanoseconds = utc2.nanoseconds
 end;
 
+define method \< (t1 :: <time>, t2 :: <time>) => (b :: <boolean>)
+  let utc1 = as-utc(t1);
+  let utc2 = as-utc(t2);
+  let sec1 = utc1.seconds;
+  let sec2 = utc2.seconds;
+  sec1 < sec2 | (sec1 == sec2 & (utc1.nanoseconds < utc2.nanoseconds))
+end;
+
+define method \- (t1 :: <time>, t2 :: <time>) => (b :: <boolean>)
+  let utc1 = as-utc(t1);
+  let utc2 = as-utc(t2);
+  utc1.seconds = utc2.seconds
+    & utc1.nanoseconds = utc2.nanoseconds
+end;
