@@ -19,33 +19,65 @@ Synopsis: Time and date APIs
 //
 // * Calender operations / dates / year/month durations.
 
+
+// Errors explicitly signalled by this library are instances of <time-error>.
+define class <time-error> (<error>)
+end;
+
+define function time-error(msg :: <string>, #rest format-args)
+  error(make(<time-error>,
+             format-string: msg,
+             format-arguments: format-args));
+end;
+
 // Basic time accessors
-define generic year        (t :: <time>) => (year :: <integer>);  // 1-...
-define generic month       (t :: <time>) => (month :: <integer>); // 1-12
-define generic day         (t :: <time>) => (day :: <integer>);   // 1-31
-define generic hour        (t :: <time>) => (hour :: <integer>);  // 0-23
-define generic minute      (t :: <time>) => (minute :: <integer>); // 0-59
-define generic second      (t :: <time>) => (second :: <integer>); // 0-59
-define generic nanosecond  (t :: <time>) => (nanosecond :: <integer>);
-define generic zone        (t :: <time>) => (zone :: <timezone>);
-define generic zone-setter (z :: <timezone>, t :: <time>) => (z :: <timezone>);
-define generic weekday     (t :: <time>) => (day :: <weekday>);
+define generic year        (t :: <time>)   => (year :: <integer>);  // 1-...
+
+// month returns a <month> object from the given month designator
+// which may be one of these things:
+//   * a 1-based index where 1 = January, 2 = February, etc.
+//   * a 3-letter English month name like "Jan" or "feb", ignoring case.
+//   * a full English month name like "January" or "february", ignoring case.
+//   * a <time> object.
+// Signals <time-error> if the designator does not identify a month.
+define generic month       (o :: <object>) => (month :: <month>);
+
+define generic day         (t :: <time>)   => (day :: <integer>);   // 1-31
+define generic hour        (t :: <time>)   => (hour :: <integer>);  // 0-23
+define generic minute      (t :: <time>)   => (minute :: <integer>); // 0-59
+define generic second      (t :: <time>)   => (second :: <integer>); // 0-59
+define generic nanosecond  (t :: <time>)   => (nanosecond :: <integer>);
+define generic zone        (t :: <time>)   => (zone :: <timezone>);
+
+// weekday returns a <weekday> object from the given weekday designator
+// which may be one of these things:
+//   * a 1-based index where 1 = Monday, 2 = Tuesday, etc.
+//   * a 3-letter English weekday name like "Mon" or "tue", ignoring case.
+//   * a full English weekday name like "Monday" or "tuesday", ignoring case.
+//   * a <time> object.
+// Signals <time-error> if the designator does not identify a weekday.
+define generic weekday     (o :: <object>) => (day :: <weekday>);
+
+// Make a <time> that represents the same time instant as `t` but in a
+// different timezone.
+define generic in-zone (t :: <time>, z :: <timezone>) => (t2 :: <time>);
 
 // Decompose `t` into its component parts for presentation.
 define generic decode-time
     (t :: <time>)
- => (year :: <integer>, month :: <integer>, day :: <integer>,
+ => (year :: <integer>, month :: <month>, day :: <integer>,
      hour :: <integer>, minute :: <integer>, second :: <integer>,
      nanosecond :: <integer>, timezone :: <timezone>);
 
 define method decode-time
     (t :: <time>)
- => (year :: <integer>, month :: <integer>, day :: <integer>,
+ => (year :: <integer>, month :: <month>, day :: <integer>,
      hour :: <integer>, minute :: <integer>, second :: <integer>,
      nanosecond :: <integer>, timezone :: <timezone>)
   let abs :: <integer> = absolute-time(t);
   let days :: <integer> = floor/(abs, $seconds-per-day);
-  let 
+  // ...
+end;
 
 define generic encode-time
     (year :: <integer>, month :: <integer>, day :: <integer>,
@@ -77,6 +109,26 @@ define constant $sunday    = make(<weekday>, number: 7, short: "Sun", name: "Sun
 define constant $days
   = vector($monday, $tuesday, $wednesday, $thursday, $friday, $saturday, $sunday);
 
+define method weekday (n :: <integer>) => (m :: <weekday>)
+  if (n < 1 | n > 7)
+    time-error("invalid weekday index %d outside the range 1..7", n);
+  end;
+  $days[n]
+end;
+
+define method weekday (name :: <string>) => (m :: <weekday>)
+  if (size(name) == 3)
+    element($short-name-to-weekday, name, default: #f)
+  else
+    element($name-to-weekday, name, default: #f)
+  end
+  | time-error("%= does not designate a valid weekday", name)
+end;
+
+define method weekday (t :: <time>) => (m :: <weekday>)
+  // TODO: calendar ops
+end;
+
 define table $name-to-weekday :: <string-table> = {
   $monday.day-name    => $monday,
   $tuesday.day-name   => $tuesday,
@@ -99,12 +151,22 @@ define table $short-name-to-weekday :: <string-table> = {
 
 // ===== Months
 
+// month-number returns the 1-based month number for the given month.
+// January = 1, February = 2, etc.
 define generic month-number     (m :: <month>) => (n :: <integer>);
+
+// month-name returns the full name of the month. "January", "February", etc.
 define generic month-name       (m :: <month>) => (n :: <string>);
+
+// month-short-name returns the 3-letter month name with an initial
+// capital letter. "Jan", "Feb", etc.
 define generic month-short-name (m :: <month>) => (n :: <string>);
+
+// month-days returns the standard (non-leap year) dayays in the month.
+// January = 31, February = 28, etc.
 define generic month-days       (m :: <month>) => (n :: <integer>);
 
-define class <month> (<object>)
+define sealed class <month> (<object>)
   constant slot month-number :: <integer>,    required-init-keyword: number:;
   constant slot month-name :: <string>,       required-init-keyword: name:;
   constant slot month-short-name :: <string>, required-init-keyword: short:;
@@ -127,6 +189,22 @@ define constant $december  = make(<month>, number: 12, short: "Dec", days: 31, n
 define constant $months
   = vector($january, $february, $march, $april, $may, $june, $july,
            $august, $september, $october, $november, $december);
+
+define method month (n :: <integer>) => (m :: <month>)
+  if (n < 1 | n > 12)
+    time-error("invalid month index %d outside the range 1..12", n);
+  end;
+  $months[n]
+end;
+
+define method month (name :: <string>) => (m :: <month>)
+  if (size(name) == 3)
+    element($short-name-to-month, name, default: #f)
+  else
+    element($name-to-month, name, default: #f)
+  end
+  | time-error("%= does not designate a valid month", name)
+end;
                             
 define table $name-to-month :: <string-table> = {
   $january.month-name => $january,
@@ -142,6 +220,7 @@ define table $name-to-month :: <string-table> = {
   $november.month-name => $november,
   $december.month-name => $december
 };
+
 define table $short-name-to-month :: <string-table> = {
   $january.month-short-name => $january,
   $february.month-short-name => $february,

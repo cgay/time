@@ -19,18 +19,20 @@ define module time
   export
     <time>, <date>, <timezone>, <day>, <month>,
 
-    // Basic time and date accessors
+    // Basic time and date
     year, month, day, hour, minute, second, nanosecond, weekday,
     zone, zone-setter,
 
-    // Weekday accessors
+    // Weekday
     weekday-number, weekday-name, weekday-short-name,
     $monday, $tuesday, $wednesday, $thursday, $friday, $saturday, $sunday,
+    get-day,
 
-    // Month accessors
+    // Month
     month-number, month-name, month-short-name, month-days,
     $january, $february, $march, $april, $may, $june, $july,
     $august, $september, $october, $november, $december,
+    get-month,
 
     // Encoding / decoding
     encode-time, decode-time,
