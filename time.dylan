@@ -1,22 +1,5 @@
 Module: %time
 
-/* TODO:
-
- * Platform-specific libraries.
-
- * Load TZ data for "aware" time zones.
-
- * Decide how/whether to deal with monotonic clocks here.
-
- * Leap seconds.
-   https://docs.rs/chrono/*/chrono/naive/struct.NaiveTime.html#leap-second-handling
-
- * Calender operations? Could go in separate module or even library.
-
- * i18n - ensure that if someone wanted to they could make the days,
-   months, and date formats display/parse in non-English languages.
-
-*/
 
 // Errors explicitly signalled by this library are instances of <time-error>.
 define class <time-error> (<error>)
@@ -35,6 +18,7 @@ end;
 
 define generic time-year         (t :: <time>) => (year :: <integer>);  // 1-...
 define generic time-month        (t :: <time>) => (month :: <month>);
+//             time-day-of-year?
 define generic time-day-of-month (t :: <time>) => (day :: <integer>);   // 1-31
 define generic time-day-of-week  (t :: <time>) => (day :: <day>);
 define generic time-hour         (t :: <time>) => (hour :: <integer>);  // 0-23
