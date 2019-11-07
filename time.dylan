@@ -335,8 +335,9 @@ define method time-second (t :: <time>) => (second :: <integer>)
 end;
 
 define method time-nanosecond (t :: <time>) => (nanosecond :: <integer>)
-  let (_, _, _, _, _, _, nanosecond) = time-components(t);
-  nanosecond
+  // This one doesn't need to call time-components since we maintain
+  // nanoseconds explicitly.
+  t.%nanoseconds
 end;
 
 
@@ -468,12 +469,13 @@ define table $short-name-to-month :: <string-table> = {
 
 // Returns the current time in the local time zone, or in `zone` if supplied.
 // For example, current-time(zone: $utc) returns the current UTC time.
-
+//
 define function current-time (#key zone :: false-or(<time-zone>)) => (t :: <time>)
-  //let timespec = make(<timespec*>);
-  //let result = c-clock-gettime(get-clock-monotonic-raw(), timespec);
-  //format-out("timespec = %=\n", timespec);
-  make(<time>)
+  let spec = make(<timespec*>);
+  let result = c-clock-gettime(get-clock-realtime(), spec);
+  make(<time>,
+       seconds: spec.timespec-seconds,
+       nanoseconds: spec.timespec-nanoseconds)
 end;
 
 // A <time> represents an instant in time, to nanosecondd precision. It has a

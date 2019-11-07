@@ -7,7 +7,9 @@ define library time
   use c-ffi;
   use io,
     import: { format, format-out };
-  export time;
+  export
+    time,
+    %time;                // for unit tests only! depend on this at your peril!
 end;
 
 // Interface
@@ -96,4 +98,9 @@ define module %time
   use common-dylan;
   use table-extensions,
     import: { <case-insensitive-string-table> };
+
+  // Exports for tests only.
+  export
+    %seconds,
+    %nanoseconds;
 end;
