@@ -1,8 +1,6 @@
 library: time
-// TODO: platform-specific libraries. 
 files: library.dylan
-       unix-time.dylan
-       zone.dylan
-       duration.dylan
        time.dylan
-c-libraries: -ltime
+c-source-files: unix-portability.c
+// TODO: other platform-specific lid files
+platforms: x86_64-linux

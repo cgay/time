@@ -1,5 +1,10 @@
 Module: %time
 
+define c-function get-clock-monotonic-raw
+  result clock-id :: <c-int>;
+  c-name: "c_get_clock_monotonic_raw";
+end;
+
 define constant <c-time-t> = <c-long>;
 define constant <c-clock-id-t> = <c-int>;
 

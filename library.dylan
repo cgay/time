@@ -1,25 +1,22 @@
 Module: dylan-user
 
-// TODO: platform-specific libraries
-
 define library time
-  use big-integers;
   use collections,
     import: { table-extensions };
   use common-dylan;
   use c-ffi;
-  use generic-arithmetic;
   use io,
-    import: { format };
+    import: { format, format-out };
   export time;
 end;
 
 // Interface
 define module time
   create
-    <time>, <time-zone>, <duration>, <day>, <month>, <time-error>,
+    <time-error>,
 
     // Time
+    <time>,
     current-time,
     time-year,
     time-month,
@@ -30,8 +27,11 @@ define module time
     time-second,
     time-nanosecond,
     time-zone,
+    $epoch,
 
     // Durations
+    <duration>,
+    duration-nanoseconds,
     $nanosecond,
     $microsecond,
     $millisecond,
@@ -40,14 +40,15 @@ define module time
     $hour,
 
     // Days of the week
-    day-number,
-    day-name,
+    <day>,
+    day-full-name,
     day-short-name,
     $monday, $tuesday, $wednesday, $thursday, $friday, $saturday, $sunday,
 
     // Months
+    <month>,
     month-number,
-    month-name,
+    month-full-name,
     month-short-name,
     month-days,
     $january, $february, $march, $april, $may, $june, $july,
@@ -57,7 +58,6 @@ define module time
     time-in-zone,
     time-in-utc,
     time-components,
-    truncate-time,
     make-time,                  // from components
     parse-time,                 // TODO: $iso-8601-format etc?
     parse-duration,
@@ -75,11 +75,14 @@ define module time
     // duration - duration => duration
 
     // Zones
+    <time-zone>,
     local-time-zone,
-    zone-name,
+    zone-short-name,
+    zone-full-name,
     zone-offset,
     zone-offset-string,
-    $utc;
+    $utc,
+    $unknown-zone-name;
 end;
 
 // Implementation
@@ -89,15 +92,8 @@ define module %time
   use c-ffi;
   use format,
     import: { format-to-string };
-  // TODO: I'm going to develop this module using the slower
-  //       big-integers arithmetic for all arithmetic operations,
-  //       attempting to note any code that could really benefit from
-  //       better performance, or whether the vast majority of
-  //       arithmetic operations are not related to 64-bit nanosecond
-  //       values. Can reassess the situation later.  See
-  //       https://opendylan.org/documentation/library-reference/numbers.html
-  //       #using-special-arithmetic-features   --cgay
-  use generic-arithmetic-common-dylan;
+  use format-out;
+  use common-dylan;
   use table-extensions,
     import: { <case-insensitive-string-table> };
 end;
