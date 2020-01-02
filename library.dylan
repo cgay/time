@@ -6,11 +6,11 @@ define library time
   use common-dylan;
   use c-ffi;
   use io,
-    import: { format, format-out };
+    import: { format, format-out, standard-io, streams };
   export
     time,
     %time;                // for unit tests only! depend on this at your peril!
-end;
+end library time;
 
 // Interface
 define module time
@@ -19,17 +19,22 @@ define module time
 
     // Time
     <time>,
-    current-time,
+    time-now,
+    time-components,            // returns the following seven values
     time-year,
     time-month,
     time-day-of-month,
-    time-day-of-week,
     time-hour,
     time-minute,
     time-second,
     time-nanosecond,
     time-zone,
+    time-day-of-week,
     $epoch,
+    
+    print-time,
+    format-time,
+    $rfc3339-format,
 
     // Durations
     <duration>,
@@ -40,6 +45,11 @@ define module time
     $second,
     $minute,
     $hour,
+    print-duration,
+    format-duration,
+    $duration-heuristic,
+    $duration-brief,
+    $duration-long,
 
     // Days of the week
     <day>,
@@ -59,7 +69,6 @@ define module time
     // Conversions
     time-in-zone,
     time-in-utc,
-    time-components,
     make-time,                  // from components
     parse-time,                 // TODO: $iso-8601-format etc?
     parse-duration,
@@ -77,15 +86,14 @@ define module time
     // duration - duration => duration
 
     // Zones
-    <time-zone>,
+    <zone>,
     local-time-zone,
     zone-short-name,
     zone-full-name,
     zone-offset,
     zone-offset-string,
-    $utc,
-    $unknown-zone-name;
-end;
+    $utc;
+end module time;
 
 // Implementation
 define module %time
@@ -93,14 +101,20 @@ define module %time
 
   use c-ffi;
   use format,
-    import: { format-to-string };
+    import: { format, format-to-string };
   use format-out;
   use common-dylan;
+  use standard-io,
+    import: { *standard-output* };
+  use streams,
+    import: { <stream>, write };
   use table-extensions,
     import: { <case-insensitive-string-table> };
 
   // Exports for tests only.
   export
     %seconds,
-    %nanoseconds;
-end;
+    %nanoseconds,
+    <time-format>,
+    <duration-style>;
+end module %time;
