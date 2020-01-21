@@ -49,13 +49,117 @@ define sealed domain \* (<real>, <duration>);
 define sealed domain \/ (<duration>, <real>);
 
 define class <time-format> (<object>)
-  slot time-format-original :: <string>,
+  constant slot time-format-original :: <string>,
     required-init-keyword: original:;
-  slot time-format-parsed :: <sequence>; // of <string> or directive (TODO)
+  constant slot time-format-parsed :: <sequence>,
+    init-keyword: parsed:;
+end class;
+
+define method make
+    (class == <time-format>, #key original :: <string>, parsed, #all-keys)
+ => (_ :: <time-format>)
+  next-method(original: original,
+              parsed: parsed | parse-time-format(original))
+end method;
+
+define constant $rfc3339
+  = make(<time-format>, original: "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}{offset}");
+
+// The choice of {micros} here is a bit arbitrary. It seems like a reasonable compromise?
+define constant $rfc3339-precise
+  = make(<time-format>, original: "{year}-{mm}-{dd}T{HH}:{MM}:{SS}.{micros}{offset}");
+
+// Parse a time format string into a sequence of literal strings and formatter functions
+// like #"four-digit-year".
+//
+// TODO: there's no way to escape the {} characters if you want those literally
+// in the time format. Does it matter?
+define function parse-time-format (descriptor :: <string>) => (_ :: <sequence>)
+  let len :: <integer> = descriptor.size;
+  iterate loop (bpos :: <integer> = 0, epos :: <integer> = 0, parsed :: <list> = #())
+    if (epos >= len)
+      reverse!(if (bpos < epos)
+                 pair(copy-sequence(descriptor, start: bpos), parsed)
+               else
+                 if (empty?(parsed))
+                   time-error("empty formatter string");
+                 else
+                   parsed
+                 end
+               end)
+    else
+      let ch :: <character> = descriptor[epos];
+      select (ch)
+        '{' => loop(epos + 1,
+                    epos + 1,
+                    if (bpos < epos)
+                      pair(copy-sequence(descriptor, start: bpos, end: epos),
+                           parsed)
+                    else
+                      parsed
+                    end);
+        '}' => loop(epos + 1,
+                    epos + 1,
+                    begin
+                      let name = copy-sequence(descriptor, start: bpos, end: epos);
+                      pair(element($time-format-map, name, default: #f)
+                             | time-error("invalid time component specifier: %=", name),
+                           parsed)
+                    end);
+        otherwise =>
+          loop(bpos, epos + 1, parsed);
+      end select
+    end
+  end iterate
+end function;
+
+// Each value is a pair of #(time-element-index . formatter-function) where
+// time-element-index is the index into the return values list of the
+// time-components function. 0 = year, 1 = month, etc
+//
+// TODO: make this extensible
+define table $time-format-map :: <string-table>
+  = { "yyyy"   => pair(0, curry(format-ndigit-int, 4)),
+      "yy"     => pair(0, curry(format-ndigit-int-modn, 2, 100)),
+      "mm"     => pair(1, curry(format-ndigit-int, 2)),
+      "dd"     => pair(2, curry(format-ndigit-int, 2)),
+      "HH"     => pair(3, curry(format-ndigit-int, 2)),
+      "hh"     => pair(3, format-hour-12),
+      "am"     => pair(3, format-lowercase-am-pm),
+      "pm"     => pair(3, format-lowercase-am-pm),
+      "AM"     => pair(3, format-uppercase-am-pm),
+      "PM"     => pair(3, format-uppercase-am-pm),
+      "MM"     => pair(4, curry(format-ndigit-int, 2)),
+      "SS"     => pair(5, curry(format-ndigit-int, 2)),
+      "ff"     => pair(6, curry(format-ndigit-int-modn, 2, 100)), // 'f' for fraction
+      "fff"    => pair(6, curry(format-ndigit-int-modn, 3, 1000)),
+      "ffffff" => pair(6, curry(format-ndigit-int-modn, 6, 1_000_000)),
+      "fffffffff" => pair(6, curry(format-ndigit-int-modn, 9, 1_000_000_000)),
+      "millis" => pair(6, curry(format-ndigit-int-modn, 3, 1000)),
+      "micros" => pair(6, curry(format-ndigit-int-modn, 6, 1_000_000)),
+      "nanos"  => pair(6, curry(format-ndigit-int-modn, 9, 1_000_000_000)),
+
+      "zone"     => pair(7, format-zone-name),       // UTC, PST, etc
+      "offset"   => pair(7, curry(format-zone-offset, /* colon? */ #f, /* Z? */ #f)),   // +0000
+      "offset:"  => pair(7, curry(format-zone-offset, /* colon? */ #t, /* Z? */ #f)),  // +00:00
+      "offset:Z" => pair(7, curry(format-zone-offset, /* colon? */ #t, /* Z? */ #t)), // Z or +02:00
+      "offsetZ:" => pair(7, curry(format-zone-offset, /* colon? */ #t, /* Z? */ #t)), // ditto
+
+      "weekday" => pair(8, format-weekday),
+      "month"   => pair(1, format-long-month-name),
+      "mon"     => pair(1, format-short-month-name)
+        };
+
+define function format-ndigit-int-modn
+    (digits :: <integer>, mod :: <integer>, stream :: <stream>, n :: <integer>) => ()
+  let n :: <integer> = modulo(n, mod);
+  write(stream, integer-to-string(n, size: digits, fill: '0'));
 end;
 
-define constant $rfc3339-format = parse-time-format("...TODO...");
-
+define function format-ndigit-int
+    (digits :: <integer>, stream :: <stream>, n :: <integer>) => ()
+  write(stream, integer-to-string(n, size: digits, fill: '0'));
+end;
 
 // Print `time` on `stream` based on `format`.
 define function print-time
@@ -69,10 +173,35 @@ end;
 define sealed generic format-time
     (stream :: <stream>, format :: <object>, time :: <time>) => ();
 
-define method format-time
-    (stream :: <stream>, format :: <object>, time :: <time>) => ()
-  write(stream, "...TODO...");
+define inline method format-time
+    (stream :: <stream>, fmt :: <time-format>, time :: <time>) => ()
+  format-time(stream, time-format-parsed(fmt), time);
 end;
+
+define inline method format-time
+    (stream :: <stream>, fmt :: <string>, time :: <time>) => ()
+  // TODO: memoize fmt
+  format-time(stream, parse-time-format(fmt), time);
+end;
+
+define inline method format-time
+    (stream :: <stream>, fmt :: <sequence>, time :: <time>) => ()
+  // I'm assuming that v is stack allocated. Verify.
+  let (#rest v) = time-components(time);
+  for (item in fmt)
+    select (item by instance?)
+      <string>
+        => write(stream, item);
+      <pair>
+        => begin
+             let index :: <integer> = item.head;
+             let formatter :: <function> = item.tail;
+             formatter(stream, v[index]);
+           end;
+      otherwise  => time-error("invalid time format element: %=", item);
+    end;
+  end;
+end method;
 
 define sealed generic parse-time
     (time :: <string>, #key format, zone) => (t :: <time>);
