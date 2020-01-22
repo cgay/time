@@ -15,8 +15,8 @@ define constant <c-time-t*> = <c-long*>;
 define constant <c-clock-id-t> = <c-int>;
 
 define c-struct <timespec>
-  slot timespec-seconds :: <c-time-t>;
-  slot timespec-nanoseconds :: <c-long>;
+  constant slot timespec-seconds :: <c-time-t>;
+  constant slot timespec-nanoseconds :: <c-long>;
   pointer-type-name: <timespec*>;
 end;
 
@@ -28,15 +28,15 @@ define c-function clock-gettime
 end;
 
 define c-struct <tm>
-  slot tm-sec :: <c-int>;
-  slot tm-min :: <c-int>;
-  slot tm-hour :: <c-int>;
-  slot tm-mday :: <c-int>;
-  slot tm-mon :: <c-int>;
-  slot tm-year :: <c-int>;
-  slot tm-wday :: <c-int>;
-  slot tm-yday :: <c-int>;
-  slot tm-isdst :: <c-int>;
+  constant slot tm-sec :: <c-int>;
+  constant slot tm-min :: <c-int>;
+  constant slot tm-hour :: <c-int>;
+  constant slot tm-mday :: <c-int>;
+  constant slot tm-mon :: <c-int>;
+  constant slot tm-year :: <c-int>;
+  constant slot tm-wday :: <c-int>;
+  constant slot tm-yday :: <c-int>;
+  constant slot tm-isdst :: <c-int>;
   pointer-type-name: <tm*>;
 end;
 
@@ -45,3 +45,9 @@ define c-function c-gmtime
   result tm :: <tm*>;
   c-name: "gmtime_r";
 end;
+
+// for now
+ignore(get-clock-monotonic-raw,
+       tm-mday, tm-min, tm-isdst, tm-mon, tm-year,
+       tm-wday, tm-yday, tm-sec, tm-hour,
+       c-gmtime);

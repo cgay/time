@@ -6,7 +6,7 @@ define library time
   use common-dylan;
   use c-ffi;
   use io,
-    import: { format, format-out, standard-io, streams };
+    import: { format, format-out, print, pprint, standard-io, streams };
   export
     time,
     %time;                // for unit tests only! depend on this at your peril!
@@ -34,7 +34,8 @@ define module time
     
     print-time,
     format-time,
-    $rfc3339-format,
+    $rfc3339,
+    $rfc3339-precise,
 
     // Durations
     <duration>,
@@ -53,14 +54,14 @@ define module time
 
     // Days of the week
     <day>,
-    day-full-name,
+    day-long-name,
     day-short-name,
     $monday, $tuesday, $wednesday, $thursday, $friday, $saturday, $sunday,
 
     // Months
     <month>,
     month-number,
-    month-full-name,
+    month-long-name,
     month-short-name,
     month-days,
     $january, $february, $march, $april, $may, $june, $july,
@@ -75,6 +76,7 @@ define module time
     parse-day,                  // TODO: not sure about this
     format-time,
     format-duration,
+    <time-format>,
 
     // Comparisons
     // duration < duration, duration = duration, time < time, time = time
@@ -89,7 +91,7 @@ define module time
     <zone>,
     local-time-zone,
     zone-short-name,
-    zone-full-name,
+    zone-long-name,
     zone-offset,
     zone-offset-string,
     $utc;
@@ -100,21 +102,23 @@ define module %time
   use time;
 
   use c-ffi;
+  use common-dylan;
   use format,
     import: { format, format-to-string };
   use format-out;
-  use common-dylan;
+  use print,
+    import: { print-object };
+  use pprint,
+    import: { printing-logical-block };
   use standard-io,
     import: { *standard-output* };
   use streams,
     import: { <stream>, write };
   use table-extensions,
-    import: { <case-insensitive-string-table> };
+    rename: { <case-insensitive-string-table> => <istring-table> };
 
   // Exports for tests only.
   export
     %seconds,
-    %nanoseconds,
-    <time-format>,
-    <duration-style>;
+    %nanoseconds;
 end module %time;
