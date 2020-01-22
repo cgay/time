@@ -227,24 +227,27 @@ define inline method format-time
 end method;
 
 
-define class <duration-style> (<object>) end;
+define abstract class <duration-format> (<object>) end;
 
-define constant $duration-heuristic = make(<duration-style>);
-define constant $duration-brief = make(<duration-style>);
-define constant $duration-long = make(<duration-style>);
+define class <duration-short-format> (<duration-format>) end;
+define class <duration-long-format> (<duration-format>) end;
 
+define constant $duration-short-format = make(<duration-short-format>);
+define constant $duration-long-format = make(<duration-long-format>);
 
-// Print `duration` on `stream` based on `style`.
 define method print-duration
     (duration :: <duration>,
      #key stream :: <stream> = *standard-output*,
-          style :: <duration-style> = $duration-heuristic)
+          format :: <duration-format> = $duration-short-format,
+          precision :: <duration> = $nanosecond)
  => ()
-  format-duration(stream, style, duration);
-end;
+  format-duration(stream, format, duration, precision);
+end method;
 
 define method format-duration
-    (stream :: <stream>, style == $duration-heuristic, duration :: <duration>) => ()
+    (stream :: <stream>, format :: <duration-short-format>,
+     duration :: <duration>, precision :: <duration>)
+ => ()
   // TODO: I like the way Go outputs durations heuristically.
   write(stream, "123ns");
 end;

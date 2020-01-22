@@ -52,20 +52,10 @@ define generic format-zone-offset
 // A <time> represents an instant in time, to nanosecondd precision. It may
 // have a zone associated with it, which affects presentation methods such as
 // format-time and time-components. If it has no zone it is a UTC time.
-//
-// <time> instances are created by calling time-now() or make-time(year, month,
-// day, ...), or by adding/subtracting a time and a duration.
-//
 define class <time> (<object>)
   constant slot %seconds :: <integer> = 0,     init-keyword: seconds:;
   constant slot %nanoseconds :: <integer> = 0, init-keyword: nanoseconds:;
-  // TODO: what about not even attaching a zone to a time? All times are UTC
-  //       until they are displayed?
-  //       Or, have <naive-time> and <aware-time> subclasses?
-  //       
-  //       It may be that it's just too damned convenient to bundle a zone with a time.
-  // TODO: don't use false-or here, just default to $utc.
-  constant slot %zone :: false-or(<zone>) = #f,   init-keyword: zone:;
+  constant slot %zone :: <zone> = $utc,   init-keyword: zone:;
 end;
 
 define constant $epoch :: <time>
@@ -104,6 +94,15 @@ define sealed generic make-time
      hour :: <integer>, minute :: <integer>, second :: <integer>, #key zone)
  => (t :: <time>);
 
+define sealed generic print-time
+    (time :: <time>, #key stream, format) => ();
+
+define sealed generic format-time
+    (stream :: <stream>, format :: <object>, time :: <time>) => ();
+
+define sealed generic parse-time
+    (time :: <string>, #key format, zone) => (time :: <time>);
+
 // TODO:
 // define sealed generic round-time (t :: <time>, d :: <duration>) => (t :: <time>);
 // define sealed generic truncate-time (t :: <time>, d :: <duration>) => (t :: <time>);
@@ -131,6 +130,16 @@ define constant $second :: <duration> = make(<duration>, nanoseconds:   1_000_00
 define constant $minute :: <duration> = make(<duration>, nanoseconds:  60_000_000_000);
 define constant $hour :: <duration> = make(<duration>, nanoseconds: 3_600_000_000_000);
 
+define sealed generic print-duration
+    (duration :: <duration>, #key stream, format, precision) => ();
+
+define sealed generic parse-duration
+    (string :: <string>) => (duration :: <duration>);
+
+define sealed generic format-duration
+    (stream :: <stream>, format :: <object>, duration :: <duration>, precision :: <duration>)
+ => ();
+
 
 //// ==== Conversions
 
@@ -144,40 +153,26 @@ define sealed domain \* (<real>, <duration>);
 define sealed domain \/ (<duration>, <real>);
 
 
+//// ==== Comparisons
+
+define sealed domain \= (<time>, <time>);
+define sealed domain \= (<duration>, <duration>);
+define sealed domain \< (<time>, <time>);
+define sealed domain \- (<time>, <time>);
+
+
 //// ==== Formatting and parsing
 
 // Describes a format for outputting a <time>. See $rfc3339 below for an example.
 define class <time-format> (<object>)
   constant slot time-format-original :: <string>,
-    required-init-keyword: original:;
+    required-init-keyword: original:; // descriptor? pattern? string?
   constant slot time-format-parsed :: <sequence>,
     init-keyword: parsed:;
 end class;
 
 define constant $rfc3339
   = make(<time-format>, original: "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}{offset}");
-
-// The choice of {micros} here is a bit arbitrary. It seems like a reasonable compromise?
-define constant $rfc3339-precise
-  = make(<time-format>, original: "{year}-{mm}-{dd}T{HH}:{MM}:{SS}.{micros}{offset}");
-
-define sealed generic print-time
-    (time :: <time>, #key stream, format) => ();
-
-define sealed generic format-time
-    (stream :: <stream>, format :: <object>, time :: <time>) => ();
-
-define sealed generic parse-time
-    (time :: <string>, #key format, zone) => (time :: <time>);
-
-define sealed generic print-duration
-    (duration :: <duration>, #key stream, style) => ();
-
-define sealed generic parse-duration
-    (string :: <string>) => (duration :: <duration>);
-
-define sealed generic format-duration
-    (stream :: <stream>, format :: <object>, duration :: <duration>) => ();
 
 
 //// ==== Days
@@ -249,11 +244,3 @@ define constant $november :: <month>
   = make(<month>, number: 11, short-name: "Nov", days: 30, long-name: "November");
 define constant $december :: <month>
   = make(<month>, number: 12, short-name: "Dec", days: 31, long-name: "December");
-
-
-//// ==== Comparisons
-
-define sealed domain \= (<time>, <time>);
-define sealed domain \= (<duration>, <duration>);
-define sealed domain \< (<time>, <time>);
-define sealed domain \- (<time>, <time>);

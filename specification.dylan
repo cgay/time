@@ -30,7 +30,7 @@ define interface-specification-suite time-specification-suite ()
 
   // Days of the week
   sealed instantiable class <day> (<object>);
-  sealed generic function day-full-name (<day>) => (<string>);
+  sealed generic function day-long-name (<day>) => (<string>);
   sealed generic function day-short-name (<day>) => (<string>);
   constant $monday :: <day>;
   constant $tuesday :: <day>;
@@ -43,7 +43,7 @@ define interface-specification-suite time-specification-suite ()
   // Months
   sealed instantiable class <month> (<object>);
   sealed generic function month-number (<month>) => (<integer>);
-  sealed generic function month-full-name (<month>) => (<string>);
+  sealed generic function month-long-name (<month>) => (<string>);
   sealed generic function month-short-name (<month>) => (<string>);
   sealed generic function month-days (<month>) => (<integer>);
   constant $january :: <month>;
@@ -76,8 +76,8 @@ define interface-specification-suite time-specification-suite ()
   // format-time matches the argument order of format.
   open generic function format-time (<stream>, <time-format>, <time>) => ();
 
-  function print-duration (<duration>, #"key", #"style") => ();
-  open generic function format-duration (<stream>, <duration-style>, <duration>) => ();
+  function print-duration (<duration>, #"key", #"stream", #"format") => ();
+  open generic function format-duration (<stream>, <duration-format>, <duration>) => ();
 
   // Comparisons
   // TODO(https://github.com/dylan-lang/testworks/issues/97):
@@ -101,7 +101,7 @@ define interface-specification-suite time-specification-suite ()
   sealed abstract class <zone> (<object>);
   sealed generic function local-time-zone () => (<zone>);
   sealed generic function zone-short-name (<zone>) => (<string>);
-  sealed generic function zone-full-name (<zone>) => (<string>);
+  sealed generic function zone-long-name (<zone>) => (<string>);
   sealed generic function zone-offset (<zone>) => (<integer>);
   sealed generic function zone-offset-string (<zone>) => (<string>);
   constant $utc :: <zone>;

@@ -35,7 +35,6 @@ define module time
     print-time,
     format-time,
     $rfc3339,
-    $rfc3339-precise,
 
     // Durations
     <duration>,
@@ -48,9 +47,9 @@ define module time
     $hour,
     print-duration,
     format-duration,
-    $duration-heuristic,
-    $duration-brief,
-    $duration-long,
+    <duration-format>,
+    $duration-short-format,
+    $duration-long-format,
 
     // Days of the week
     <day>,
