@@ -13,6 +13,11 @@ define function time-error(msg :: <string>, #rest format-args)
              format-arguments: format-args));
 end;
 
+
+// Time formats
+
+// <time-format>s are used for both printing and parsing.
+
 define method make
     (class == <time-format>, #key original :: <string>, parsed, #all-keys)
  => (_ :: <time-format>)
@@ -22,7 +27,7 @@ end method;
 
 define method print-object
     (fmt :: <time-format>, stream :: <stream>) => ()
-  printing-logical-block (stream, prefix: "{", suffix: "}")
+  printing-logical-block (stream, prefix: "<time-format ", suffix: ">")
     write(stream, time-format-original(fmt));
   end;
 end method;
@@ -227,6 +232,18 @@ define inline method format-time
 end method;
 
 
+// ==== Time parsing
+
+define method parse-time
+    (input :: <string>, #key format :: false-or(<time-format>), zone :: <zone> = $utc)
+ => (time :: <time>)
+  // TODO
+  time-now()
+end method;
+
+
+// ==== Duration formats
+
 define abstract class <duration-format> (<object>) end;
 
 define class <duration-short-format> (<duration-format>) end;
@@ -241,12 +258,20 @@ define method print-duration
           format :: <duration-format> = $duration-short-format,
           precision :: <duration> = $nanosecond)
  => ()
-  format-duration(stream, format, duration, precision);
+  format-duration(stream, format, duration, precision: precision);
 end method;
 
 define method format-duration
-    (stream :: <stream>, format :: <duration-short-format>,
-     duration :: <duration>, precision :: <duration>)
+    (stream :: <stream>, format :: <string>, duration :: <duration>,
+     #key precision :: <duration> = $nanosecond)
+ => ()
+  // TODO: parse `format` and cache it
+  write(stream, "456n");
+end method;
+
+define method format-duration
+    (stream :: <stream>, format :: <duration-short-format>, duration :: <duration>,
+     #key precision :: <duration> = $nanosecond)
  => ()
   // TODO: I like the way Go outputs durations heuristically.
   write(stream, "123ns");
@@ -293,7 +318,7 @@ define method \* (d :: <duration>, r :: <real>) => (d :: <duration>)
   make(<duration>, nanoseconds: d.duration-nanoseconds * r)
 end;
 
-define method \* (r :: <real>, d :: <duration>) => (d :: <duration>)
+define inline-only method \* (r :: <real>, d :: <duration>) => (d :: <duration>)
   d * r
 end;
 
@@ -325,9 +350,10 @@ define method time-components
 end;
 
 define method make-time
-    (year :: <integer>, month :: <integer>, day :: <integer>,
+    (year :: <integer>, month :: <month>, day :: <integer>,
      hour :: <integer>, minute :: <integer>, second :: <integer>,
-     #key zone :: <zone> = $utc)
+     #key nanosecond :: <integer> = 0,
+          zone :: <zone> = $utc)
  => (t :: <time>)
   // TODO: stub
   make(<time>)

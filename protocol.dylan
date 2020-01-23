@@ -16,6 +16,8 @@ define constant $utc :: <naive-zone>
          short-name: "UTC",
          offset: 0);
 
+define generic local-time-zone () => (zone :: <zone>);
+
 // The short for the zone, like "UTC" or "CET". If a zone has no short name it
 // defaults to the value of zone-offset-string() for the current time. If the
 // zone has no offset at the current time it defaults to $unknown-zone-name.
@@ -90,8 +92,9 @@ define sealed generic time-components
      nanosecond :: <integer>, zone :: <zone>, day-of-week :: <day>);
 
 define sealed generic make-time
-    (year :: <integer>, month :: <integer>, day :: <integer>,
-     hour :: <integer>, minute :: <integer>, second :: <integer>, #key zone)
+    (year :: <integer>, month :: <month>, day :: <integer>,
+     hour :: <integer>, minute :: <integer>, second :: <integer>,
+     #key nanosecond, zone)
  => (t :: <time>);
 
 define sealed generic print-time
@@ -137,7 +140,8 @@ define sealed generic parse-duration
     (string :: <string>) => (duration :: <duration>);
 
 define sealed generic format-duration
-    (stream :: <stream>, format :: <object>, duration :: <duration>, precision :: <duration>)
+    (stream :: <stream>, format :: <object>, duration :: <duration>,
+     #key precision)
  => ();
 
 

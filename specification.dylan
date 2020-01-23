@@ -1,4 +1,4 @@
-Module: time-test
+Module: time-test-suite
 
 define interface-specification-suite time-specification-suite ()
   // Time
@@ -63,21 +63,17 @@ define interface-specification-suite time-specification-suite ()
   sealed generic function time-in-zone (<time>, <zone>) => (<time>);
   sealed generic function time-in-utc (<time>) => (<time>);
   sealed generic function make-time
-      (<integer>, <integer>, <integer>, <integer>, <integer>, <integer>, #"key", #"zone")
+      (<integer>, <month>, <integer>, <integer>, <integer>, <integer>, #"key", #"nanosecond", #"zone")
    => (<time>);
-  sealed generic function parse-time (<string>, <object>, #"key", #"zone") => (<time>);
+  sealed generic function parse-time (<string>, #"key", #"format", #"zone") => (<time>);
   sealed generic function parse-duration (<string>) => (<duration>);
   sealed generic function parse-day (<string>) => (<day>);
 
-  // TODO: Really not sure yet the best API for outputting time and duration values.
-
-  // print-time calls format-time but provides defaults.
   function print-time (<time>, #"key", #"stream", #"format") => ();
-  // format-time matches the argument order of format.
-  open generic function format-time (<stream>, <time-format>, <time>) => ();
+  open generic function format-time (<stream>, <object>, <time>) => ();
 
   function print-duration (<duration>, #"key", #"stream", #"format") => ();
-  open generic function format-duration (<stream>, <duration-format>, <duration>) => ();
+  open generic function format-duration (<stream>, <object>, <duration>, #"key", #"precision") => ();
 
   // Comparisons
   // TODO(https://github.com/dylan-lang/testworks/issues/97):
@@ -110,9 +106,9 @@ end interface-specification-suite;
 ignore(time-specification-suite);
 
 define sideways method make-test-instance (class == <day>) => (day :: <day>)
-  make(<day>, full-name: "Today", short-name: "2day")
+  make(<day>, long-name: "Today", short-name: "2day")
 end;
 
 define sideways method make-test-instance (class == <month>) => (month :: <month>)
-  make(<month>, full-name: "Month", short-name: "Mes", number: 12, days: 31)
+  make(<month>, long-name: "Month", short-name: "Mes", number: 12, days: 31)
 end;

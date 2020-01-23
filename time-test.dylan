@@ -1,12 +1,9 @@
-Module: time-test
+Module: time-test-suite
 
 define test test-current-time ()
   let t = time-now();
-  assert-equal(t.%seconds, 100);
-  assert-equal(t.%nanoseconds, 200);
-  assert-equal($minimum-integer, -9);
-  assert-equal($maximum-integer, 9);
-end;
+  assert-true(t.%seconds > 1579722183); // The value when I initially wrote the code.
+  assert-true(t.%nanoseconds >= 0 & t.%nanoseconds < 1_000_000_000);
+end test;
 
-// Testworks top level
 run-test-application();
