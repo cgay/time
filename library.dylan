@@ -20,16 +20,16 @@ define module time
     // Time
     <time>,
     time-now,
-    time-components,            // returns the following seven values
-    time-year,
-    time-month,
-    time-day-of-month,
-    time-hour,
-    time-minute,
-    time-second,
-    time-nanosecond,
-    time-zone,
-    time-day-of-week,
+    time-components,            // returns the following nine values, in order
+      time-year,
+      time-month,
+      time-day-of-month,
+      time-hour,
+      time-minute,
+      time-second,
+      time-nanosecond,
+      time-zone,
+      time-day-of-week,
     $epoch,
     
     print-time,
@@ -89,8 +89,8 @@ define module time
     // Zones
     <zone>,
     local-time-zone,
-    zone-short-name,
-    zone-long-name,
+    zone-abbreviation,
+    zone-name,
     zone-offset,
     zone-offset-string,
     $utc;
@@ -119,5 +119,6 @@ define module %time
   // Exports for tests only.
   export
     %seconds,
-    %nanoseconds;
+    %nanoseconds,
+    <naive-zone>;
 end module %time;

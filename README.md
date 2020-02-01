@@ -79,6 +79,13 @@ system.  2305843009213693951 / (1000000000 * 60 * 60 * 24 * 365.0)
 
 *  Platform-specific libraries.
 
+*  Like Rust's time::Instant, uses monotonic clock:
+   `define class <instant> (<abstract-time>)` Is this needed?
+
+*  Rename <time> to <date-time>?  To <instant>?
+
+*  <date>, <naive-date>, <time-of-day>?
+
 *  Load TZ data for "aware" time zones.
 
 *  Decide how/whether to deal with monotonic clocks here.
@@ -90,3 +97,10 @@ system.  2305843009213693951 / (1000000000 * 60 * 60 * 24 * 365.0)
 
 *  i18n - ensure that if someone wanted to they could make the days,
    months, and date formats display/parse in non-English languages.
+
+
+## References
+
+* https://tools.ietf.org/html/rfc2822#page-14
+* https://tools.ietf.org/html/rfc3339
+* https://tools.ietf.org/html/rfc5322#page-14

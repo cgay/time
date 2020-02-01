@@ -1,46 +1,38 @@
 Module: %time
 Synopsis: Public interfaces for the time module
 
+// Be sure to see specific methods (in other files) for addition documentation
+// on the generic functions defined here.
+
 // Errors explicitly signaled by this library are instances of <time-error>.
 define class <time-error> (<error>) end;
 
 
 //// ==== Zones
 
-define abstract class <zone> (<object>)
-end class;
-
 define constant $utc :: <naive-zone>
   = make(<naive-zone>,
-         long-name: "Coordinated Universal Time",
-         short-name: "UTC",
+         name: "Coordinated Universal Time",
+         abbreviation: "UTC",
          offset: 0);
 
 define generic local-time-zone () => (zone :: <zone>);
 
-// The short for the zone, like "UTC" or "CET". If a zone has no short name it
-// defaults to the value of zone-offset-string() for the current time. If the
-// zone has no offset at the current time it defaults to $unknown-zone-name.
-define sealed generic zone-short-name (z :: <zone>) => (name :: <string>);
-
-// The long name for the zone, like "Coordinated Universal Time" or "Central
-// European Time". If a zone has no name it defaults to the value of
-// zone-offset-string() for the current time. If the zone has no offset at the
-// current time it defaults to "???".
-define sealed generic zone-long-name (z :: <zone>) => (name :: <string>);
-
-// The number of minutes offset from UTC for zone `z` at time `time`.
-// If `time` is not provided it defaults to the current time.
+method execute-command (command :: <jam-action-command>) => ();
+// The UTC offset in minutes at time `time` in zone `zone`.
 //
-// TODO: not quite right. <time> has a <zone> but we pass the time to the zone
-// to determine the offset.
-define sealed generic zone-offset (z :: <zone>, #key time) => (minutes :: <integer>);
+// TODO: It is possible, at least historically, to have an offset with
+// fractional minutes so maybe this should return a number of seconds. I'm
+// concerned that would be more confusing than it's worth. Provide a precision:
+// keyword argument? Have separate functions for minutes and seconds? Needs
+// research.
+define sealed generic zone-offset
+    (time :: <time>, zone :: <zone>) => (minutes :: <integer>);
 
-// Returns a string describing the offset from UTC for zone `z` at time `time`.
-// For example, "+0000" for UTC itself or "-0400" for EDT. Use
-// `zone-short-name` if you want to display the mnemonic zone name instead. If
-// this zone didn't exist at `time` a <time-error> is signaled.
-define sealed generic zone-offset-string (z :: <zone>, #key time) => (offset :: <string>);
+// Returns a string describing the offset from UTC for zone `zone` at time
+// `time`.  For example, "+0000" for UTC itself or "-0400" for EDT.
+define sealed generic zone-offset-string
+    (time :: <time>, zone :: <zone>, #key colon?, allow-z?) => (offset :: <string>);
 
 // If `colon?` is true then use +00:00, else use +0000.  If `utc-name` is
 // provided, output that string for a naive zone with offset 0 instead of the
@@ -51,14 +43,21 @@ define generic format-zone-offset
 
 //// ==== Time
 
-// A <time> represents an instant in time, to nanosecondd precision. It may
-// have a zone associated with it, which affects presentation methods such as
-// format-time and time-components. If it has no zone it is a UTC time.
+// A <time> represents an instant in time, to nanosecondd precision. Although
+// <time> has a <zone> associated with it, this is solely for display purposes
+// and for the convenience of not having to pass zone objects when conversion
+// to display format occurs. The seconds and nanoseconds in the <time> object
+// always represent UTC time.
 define class <time> (<object>)
   constant slot %seconds :: <integer> = 0,     init-keyword: seconds:;
   constant slot %nanoseconds :: <integer> = 0, init-keyword: nanoseconds:;
+
+  // TODO: Consider removing this and simply (?) forcing the user to specify a
+  // zone whenever conversion to display time occurs. My suspicion is that it
+  // would be too onerous and the convenience of having the zone attached to
+  // the time outweighs the potential confusion.
   constant slot %zone :: <zone> = $utc,   init-keyword: zone:;
-end;
+end class;
 
 define constant $epoch :: <time>
   = make(<time>, seconds: 0, nanoseconds: 0, zone: $utc);
@@ -70,7 +69,7 @@ define sealed generic time-day-of-month (t :: <time>) => (day :: <integer>);   /
 define sealed generic time-day-of-week  (t :: <time>) => (day :: <day>);
 define sealed generic time-hour         (t :: <time>) => (hour :: <integer>);  // 0-23
 define sealed generic time-minute       (t :: <time>) => (minute :: <integer>); // 0-59
-define sealed generic time-second       (t :: <time>) => (second :: <integer>); // 0-59
+define sealed generic time-second       (t :: <time>) => (second :: <integer>); // 0-60
 define sealed generic time-nanosecond   (t :: <time>) => (nanosecond :: <integer>);
 define sealed generic time-zone         (t :: <time>) => (zone :: <zone>);
 
@@ -181,7 +180,7 @@ define constant $rfc3339
 
 //// ==== Days
 
-// TODO: do we need day-number => 1..7?
+// TODO: do we need day-number => 1..7?  day-letter? (probably not, no standard)
 define sealed generic day-long-name (d :: <day>) => (name :: <string>);
 define sealed generic day-short-name (d :: <day>) => (name :: <string>);
 define sealed generic parse-day (name :: <string>) => (day :: <day>);

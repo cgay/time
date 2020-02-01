@@ -1,15 +1,28 @@
 Module: %time
 Synopsis: Time zones implementation
 
+define abstract class <zone> (<object>)
+  constant slot %name :: <string>, init-keyword: name:;
+  constant slot %abbrev :: <string>, init-keyword: abbreviation:;
+end class;
 
 define class <naive-zone> (<zone>)
   constant slot %offset :: <integer>, required-init-keyword: offset:;
-end;
+end class;
+
+define method make
+    (class == <naive-zone>, #key offset :: <integer>, abbreviation, name, #all-keys)
+ => (zone :: <zone>)
+  let abbrev = abbreviation | offset-to-utc-abbrev(offset);
+  make(<naive-zone>,
+       offset: offset,
+       abbreviation: abbrev,
+       name: name | abbrev)
+end method;
 
 // TODO: this should subclass <zone> but I'm making it subclass <naive-zone>
 // until tzdata is implemented.
 define class <aware-zone> (<naive-zone>)
-  //constant slot zone-long-name :: <string>? = #f, init-keyword: long-name:;
 
   // The historical offsets from UTC, ordered newest first because the common
   // case is assumed to be asking about the current time. Each element is a
@@ -25,9 +38,25 @@ end class;
 
 // TODO: a make method with some error checking of the offsets
 
-define method zone-short-name (z :: <zone>) => (name :: <string>)
-  // z.%short-name | zone-offset-string(z, time: time-now());
-  "TODO"
+// Returns a string such as "UTC", "UTC-5", or "UTC+3:30".
+define function offset-to-utc-abbrev (offset :: <integer>) => (abbrev :: <string>)
+  let (hours, minutes) = floor/(abs(offset), 60);
+  let sign = if (offset < 0) "-" else "+" end;
+  if (minutes = 0)
+    if (hours = 0)
+      "UTC"
+    else
+      concatenate("UTC", sign, integer-to-string(hours))
+    end
+  else
+    format-to-string("UTC%s%d%02d", sign, hours, minutes)
+  end
+end function;
+
+define method %zone-abbreviation
+    (time :: <time>, zone :: <aware-zone>) => (name :: <string>)
+  // TODO
+  next-method()
 end method;
 
 define method zone-long-name (z :: <zone>) => (name :: <string>)

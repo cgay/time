@@ -100,7 +100,7 @@ define interface-specification-suite time-specification-suite ()
   sealed generic function zone-long-name (<zone>) => (<string>);
   sealed generic function zone-offset (<zone>) => (<integer>);
   sealed generic function zone-offset-string (<zone>) => (<string>);
-  constant $utc :: <zone>;
+  constant $utc :: <naive-zone>;
 end interface-specification-suite;
 
 ignore(time-specification-suite);
