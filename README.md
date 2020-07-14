@@ -72,9 +72,6 @@ The library API can be logically separated into several parts:
   * _duration_ `/` _real number_
 
 
-
-system.  2305843009213693951 / (1000000000 * 60 * 60 * 24 * 365.0)
-
 ## TODO
 
 *  Platform-specific libraries.
@@ -98,6 +95,13 @@ system.  2305843009213693951 / (1000000000 * 60 * 60 * 24 * 365.0)
 *  i18n - ensure that if someone wanted to they could make the days,
    months, and date formats display/parse in non-English languages.
 
+*  Use the dylan primitive C interface instead of C-FFI to reduce library size.
+
+   ```shell
+   $ size libc-ffi.so
+   text     data     bss   dec      hex       filename
+   353317   102353     1   455671   0x6f3f7   libc-ffi.so
+   ```
 
 ## References
 

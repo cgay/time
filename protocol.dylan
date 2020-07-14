@@ -1,8 +1,8 @@
 Module: %time
 Synopsis: Public interfaces for the time module
 
-// Be sure to see specific methods (in other files) for addition documentation
-// on the generic functions defined here.
+// Be sure to see specific methods (in other files) for additional
+// documentation on the generic functions defined here.
 
 // Errors explicitly signaled by this library are instances of <time-error>.
 define class <time-error> (<error>) end;
@@ -18,7 +18,6 @@ define constant $utc :: <naive-zone>
 
 define generic local-time-zone () => (zone :: <zone>);
 
-method execute-command (command :: <jam-action-command>) => ();
 // The UTC offset in minutes at time `time` in zone `zone`.
 //
 // TODO: It is possible, at least historically, to have an offset with
