@@ -10,15 +10,21 @@ define class <time-error> (<error>) end;
 
 //// ==== Zones
 
+// Returns the full name of the zone. Ex: "America/New York"
+define sealed generic zone-name (zone :: <zone>) => (name :: <string>);
+
 define constant $utc :: <naive-zone>
   = make(<naive-zone>,
          name: "Coordinated Universal Time",
          abbreviation: "UTC",
          offset: 0);
 
+// Returns the local time zone, according to the operating system.
 define generic local-time-zone () => (zone :: <zone>);
 
-// The UTC offset in minutes at time `time` in zone `zone`.
+// The UTC offset in minutes at time `time` in zone `zone`. For `<aware-zone>`
+// a time should be passed so the offset at that time may be determined. If
+// not provided, the current time is used instead.
 //
 // TODO: It is possible, at least historically, to have an offset with
 // fractional minutes so maybe this should return a number of seconds. I'm
@@ -26,23 +32,26 @@ define generic local-time-zone () => (zone :: <zone>);
 // keyword argument? Have separate functions for minutes and seconds? Needs
 // research.
 define sealed generic zone-offset
-    (time :: <time>, zone :: <zone>) => (minutes :: <integer>);
+    (zone :: <zone>, #key time) => (minutes :: <integer>);
 
-// Returns a string describing the offset from UTC for zone `zone` at time
-// `time`.  For example, "+0000" for UTC itself or "-0400" for EDT.
+// Returns a string describing the offset in minutes from UTC for zone `zone`
+// at time `time`.  For example, "+00:00" or "Z" for UTC itself or "-04:00" for
+// a time in EDT.
 define sealed generic zone-offset-string
-    (time :: <time>, zone :: <zone>, #key colon?, allow-z?) => (offset :: <string>);
+    (zone :: <zone>, #key time) => (offset :: <string>);
 
-// If `colon?` is true then use +00:00, else use +0000.  If `utc-name` is
-// provided, output that string for a naive zone with offset 0 instead of the
-// numeric format. Ex: `utc-name: "Z"`
-define generic format-zone-offset
-  (stream :: <stream>, zone :: <zone>, #key colon?, utc-name) => ();
+// Returns the short name of `zone`. The abbreviation is symbolic if possible
+// (ex: "EDT", "UTC") and otherwise is the result of calling
+// zone-offset-string. For `<aware-zone>` a time should be provided since the
+// abbreviation may differ over time. If not provided, the current time is
+// used.
+define generic zone-abbreviation
+    (zone :: <zone>, #key time) => (abbrev :: <string>);
 
 
 //// ==== Time
 
-// A <time> represents an instant in time, to nanosecondd precision. Although
+// A <time> represents an instant in time, to nanosecond precision. Although
 // <time> has a <zone> associated with it, this is solely for display purposes
 // and for the convenience of not having to pass zone objects when conversion
 // to display format occurs. The seconds and nanoseconds in the <time> object
@@ -72,9 +81,8 @@ define sealed generic time-second       (t :: <time>) => (second :: <integer>); 
 define sealed generic time-nanosecond   (t :: <time>) => (nanosecond :: <integer>);
 define sealed generic time-zone         (t :: <time>) => (zone :: <zone>);
 
-// Returns the current time in the local time zone, or in `zone` if supplied.
-// For example, time-now(zone: $utc) returns the current UTC time.
-//
+// Returns the current time. If `zone` is supplied then it is associated with
+// the returned time and used for display purposes.
 define sealed generic time-now (#key zone) => (t :: <time>);
 
 // Make a <time> that represents the same time instant as `t` but in a

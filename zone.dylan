@@ -2,8 +2,8 @@ Module: %time
 Synopsis: Time zones implementation
 
 define abstract class <zone> (<object>)
-  constant slot %name :: <string>, init-keyword: name:;
-  constant slot %abbrev :: <string>, init-keyword: abbreviation:;
+  constant slot zone-name :: <string>, init-keyword: name:;
+  constant slot %abbreviation :: <string>, init-keyword: abbreviation:;
 end class;
 
 define class <naive-zone> (<zone>)
@@ -14,6 +14,7 @@ define method make
     (class == <naive-zone>, #key offset :: <integer>, abbreviation, name, #all-keys)
  => (zone :: <zone>)
   let abbrev = abbreviation | offset-to-utc-abbrev(offset);
+  // TODO: verify the offset is reasonable.
   make(<naive-zone>,
        offset: offset,
        abbreviation: abbrev,
@@ -53,15 +54,16 @@ define function offset-to-utc-abbrev (offset :: <integer>) => (abbrev :: <string
   end
 end function;
 
-define method %zone-abbreviation
-    (time :: <time>, zone :: <aware-zone>) => (name :: <string>)
-  // TODO
-  next-method()
+define method zone-abbreviation
+    (zone :: <naive-zone>, #key time) => (name :: <string>)
+  zone.%abbreviation
 end method;
 
-define method zone-long-name (z :: <zone>) => (name :: <string>)
-  // z.%long-name | zone-offset-string(z, time: time-now());
-  "TODO"
+define method zone-abbreviation
+    (zone :: <aware-zone>, #key time :: false-or(<time>))
+ => (name :: <string>)
+  // TODO
+  next-method()
 end method;
 
 define method local-time-zone () => (zone :: <zone>)
@@ -69,15 +71,14 @@ define method local-time-zone () => (zone :: <zone>)
   $utc
 end method;
 
-// TODO: return seconds? rare, but happens per RFC 3339
 define method zone-offset
-    (zone :: <naive-zone>, #key time :: false-or(<time>))
- => (minutes :: <integer>)
+    (zone :: <naive-zone>, #key time) => (minutes :: <integer>)
   zone.%offset
 end method;
 
 define method zone-offset
-    (zone :: <aware-zone>, #key time :: false-or(<time>)) => (minutes :: <integer>)
+    (zone :: <aware-zone>, #key time :: false-or(<time>))
+ => (minutes :: <integer>)
   let time = time | time-now();
   let offsets = zone.%offsets;
   let len :: <integer> = offsets.size;
@@ -96,10 +97,32 @@ define method zone-offset
   end iterate
 end method;
 
+define inline function offset-to-string
+    (offset :: <integer>) => (_ :: <string>)
+  if (offset = 0)
+    "+00:00"                    // frequent case? avoid allocation.
+  else
+    let (hours, minutes) = floor/(abs(offset), 60.0);
+    concatenate(if (offset < 0) "-" else "+" end,
+                integer-to-string(as(<integer>, hours), size: 2),
+                ":",
+                integer-to-string(as(<integer>, minutes), size: 2))
+  end
+end function;
+
+// Returns the zone offset string in the form "+hh:mm" or "-hh:mm" where 'hh'
+// and 'mm' are hours and minutes. The `time` parameter is ignored by this
+// method.
 define method zone-offset-string
-    (z :: <zone>, #key time :: false-or(<time>)) => (offset :: <string>)
-  let offset = zone-offset(z, time: time);
-  let (hours, minutes) = floor/(abs(offset), 60);
-  let sign = if (offset < 0) "-" else "+" end;
-  format-to-string("%s%02d%02d", sign, hours, round(minutes))
+    (zone :: <naive-zone>, #key time) => (offset :: <string>)
+  offset-to-string(zone-offset(zone));
+end method;
+
+// Returns the zone offset string in the form "+hh:mm" or "-hh:mm" where 'hh'
+// and 'mm' are hours and minutes. If `time` is supplied then the offset at
+// that time is used, otherwise the offset at the current time is used.
+define method zone-offset-string
+    (zone :: <aware-zone>, #key time :: false-or(<time>))
+ => (offset :: <string>)
+  offset-to-string(zone-offset(zone, time: time | time-now()))
 end method;

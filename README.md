@@ -11,7 +11,7 @@ for several reasons:
 
 I must acknowledge that the development of this library was influenced to some
 extent by the Go time package. I like much of what they've done there (except
-for the horrific time.Parse API) and I used it as a reference to make sure I
+for the horrific `time.Parse` API) and I used it as a reference to make sure I
 wasn't doing anything too crazy. To a smaller extent I used the Rust and Python
 docs as inspiration also.
 
@@ -61,8 +61,8 @@ The library API can be logically separated into several parts:
 * Comparisons - the `=`, `<`, and '>' functions work on pairs of times and
   pairs of durations.
 
-* Time arithmetic - the Dylan arithmetic operators are overloaded to work on
-  certain combinations of times and durations:
+* Arithmetic - the Dylan arithmetic operators are overloaded to work on
+  combinations of times and durations for which it makes logical sense:
 
   * _time_ `+` _duration_ **or** _duration_ `+` _time_
   * _time_ `-` _duration_
@@ -78,8 +78,6 @@ The library API can be logically separated into several parts:
 
 *  Like Rust's time::Instant, uses monotonic clock:
    `define class <instant> (<abstract-time>)` Is this needed?
-
-*  Rename <time> to <date-time>?  To <instant>?
 
 *  <date>, <naive-date>, <time-of-day>?
 

@@ -112,7 +112,7 @@ define table $time-format-map :: <string-table>
       "weekday" => pair(8, format-long-weekday),
       "mon"     => pair(1, format-short-month-name),
       "month"   => pair(1, format-long-month-name)
-        };
+     };
 
 // TODO: ...-modn name is confusing with n parameter.
 define inline function format-ndigit-int-modn
@@ -531,12 +531,3 @@ define method \- (t1 :: <time>, t2 :: <time>) => (d :: <duration>)
   end;
   make(<duration>, nanoseconds: nanoseconds)
 end method;
-
-
-// For `<aware-zone>` different
-// names may be returned depending whether the time represents an instant in
-// daylight savings time in that zone or not. For example, if `time` represents
-// 2019-03-10T06:59Z and its zone is "North America/New York" then
-// zone-short-name returns "EST" (UTC-5) but c
-define method zone-abbreviation (time :: <time>) => (abbrev :: <string>)
-
