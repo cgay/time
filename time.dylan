@@ -13,6 +13,13 @@ define function time-error(msg :: <string>, #rest format-args)
              format-arguments: format-args));
 end;
 
+define method print-object
+    (time :: <time>, stream :: <stream>) => ()
+  printing-object (time, stream)
+    format-time(stream, $rfc3339, time); 
+  end;
+end method;
+
 
 // Time formats
 
@@ -27,7 +34,7 @@ end method;
 
 define method print-object
     (fmt :: <time-format>, stream :: <stream>) => ()
-  printing-logical-block (stream, prefix: "<time-format ", suffix: ">")
+  printing-object (fmt, stream)
     write(stream, time-format-original(fmt));
   end;
 end method;
@@ -149,14 +156,13 @@ end method;
 
 define method format-zone-name
     (stream :: <stream>, zone :: <aware-zone>)
-  // TODO: just showing offset until tzdata parsed
-  format-zone-offset(stream, zone)
+  write(stream, zone.zone-name);
 end method;
 
 define method format-zone-offset
     (stream :: <stream>, zone :: <naive-zone>,
      #key colon? :: <boolean>,
-          utc-name :: false-or(<string>))
+          utc-name :: <string>?)
  => ()
   let offset = zone-offset(zone);
   if (offset = 0 & utc-name)
@@ -235,7 +241,7 @@ end method;
 // ==== Time parsing
 
 define method parse-time
-    (input :: <string>, #key format :: false-or(<time-format>), zone :: <zone> = $utc)
+    (input :: <string>, #key format :: <time-format> = $rfc3339, zone :: <zone> = $utc)
  => (time :: <time>)
   // TODO
   time-now()

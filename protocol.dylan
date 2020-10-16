@@ -5,7 +5,7 @@ Synopsis: Public interfaces for the time module
 // documentation on the generic functions defined here.
 
 // Errors explicitly signaled by this library are instances of <time-error>.
-define class <time-error> (<error>) end;
+define class <time-error> (<simple-error>) end;
 
 
 //// ==== Zones

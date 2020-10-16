@@ -95,6 +95,8 @@ define interface-specification-suite time-specification-suite ()
 
   // Zones
   sealed abstract class <zone> (<object>);
+  sealed instantiable class <naive-zone> (<zone>);
+  sealed instantiable class <aware-zone> (<zone>);
   sealed generic function local-time-zone () => (<zone>);
   sealed generic function zone-name (<zone>) => (<string>);
   sealed generic function zone-abbreviation (<zone>) => (<string>);
@@ -105,10 +107,31 @@ end interface-specification-suite;
 
 ignore(time-specification-suite);
 
+
+// Tell testworks how to make instances of classes that require init keywords.
+
 define sideways method make-test-instance (class == <day>) => (day :: <day>)
-  make(<day>, long-name: "Today", short-name: "2day")
-end;
+  make(<day>,
+       long-name: "Today",
+       short-name: "2day")
+end method;
 
 define sideways method make-test-instance (class == <month>) => (month :: <month>)
-  make(<month>, long-name: "Month", short-name: "Mes", number: 12, days: 31)
-end;
+  make(<month>,
+       long-name: "Month",
+       short-name: "Mes",
+       number: 12,
+       days: 31)
+end method;
+
+define sideways method make-test-instance (class == <naive-zone>) => (zone :: <naive-zone>)
+  make(<naive-zone>,
+       name: "make-test-instance(<naive-zone>)",
+       offset: -1);
+end method;
+
+define sideways method make-test-instance (class == <aware-zone>) => (zone :: <aware-zone>)
+  make(<aware-zone>,
+       name: "make-test-instance(<aware-zone>)",
+       offsets: vector(pair($epoch, 60)))
+end method;

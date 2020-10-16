@@ -106,9 +106,7 @@ define module %time
     import: { format, format-to-string };
   use format-out;
   use print,
-    import: { print-object };
-  use pprint,
-    import: { printing-logical-block };
+    import: { print-object, printing-object };
   use standard-io,
     import: { *standard-output* };
   use streams,
@@ -120,5 +118,6 @@ define module %time
   export
     %seconds,
     %nanoseconds,
-    <naive-zone>;
+    <naive-zone>,
+    <aware-zone>;
 end module %time;

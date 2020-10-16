@@ -2,42 +2,53 @@ Module: %time
 Synopsis: Time zones implementation
 
 define abstract class <zone> (<object>)
-  constant slot zone-name :: <string>, init-keyword: name:;
-  constant slot %abbreviation :: <string>, init-keyword: abbreviation:;
+  constant slot zone-name :: <string>, required-init-keyword: name:;
 end class;
 
+// Naive zones have a constant offset from UTC and constant abbreviation over time.
 define class <naive-zone> (<zone>)
   constant slot %offset :: <integer>, required-init-keyword: offset:;
+  constant slot %abbreviation :: <string>?, init-keyword: abbreviation:;
 end class;
 
-define method make
-    (class == <naive-zone>, #key offset :: <integer>, abbreviation, name, #all-keys)
- => (zone :: <zone>)
-  let abbrev = abbreviation | offset-to-utc-abbrev(offset);
-  // TODO: verify the offset is reasonable.
-  make(<naive-zone>,
-       offset: offset,
-       abbreviation: abbrev,
-       name: name | abbrev)
+define method initialize (zone :: <naive-zone>, #key offset :: <integer>, #all-keys)
+  // Validate the offset. Current max is +14h, min is -12h, but there's nothing
+  // that says some place won't use a larger value, so arbitrarily choosing +/-
+  // 15h, which will at least prevent crazy accidental values, for example if
+  // seconds are used instead of minutes.
+  if (offset > 15 * 60 | offset < -15 * 60)
+    time-error("Time zone offsets must be between -15h (%d) and +15h (%d), got %=",
+               -15 * 60, 15 * 60, offset);
+  end;
 end method;
 
-// TODO: this should subclass <zone> but I'm making it subclass <naive-zone>
-// until tzdata is implemented.
-define class <aware-zone> (<naive-zone>)
-
+// Aware zones may have different offsets or abbreviations over time.
+define class <aware-zone> (<zone>)
   // The historical offsets from UTC, ordered newest first because the common
   // case is assumed to be asking about the current time. Each element is a
-  // pair(start-time, integer-offset) indicating that at start-time the offset
-  // was integer-offset minutes from UTC.  If this zone didn't exist at time
-  // `t` a `<time-error>` is signaled.
-  //
-  // TODO: no idea how often zones change. Need to look at the tz data. It's
-  // possible that it's worth using a balanced tree of some sort for this.
-  constant slot %offsets :: <sequence>,
-    required-init-keyword: offsets:;
+  // pair(start-time, offset-minutes) indicating that at start-time the offset
+  // was integer-offset minutes from UTC. (Might want to consider better storage
+  // formats at some point.)
+  // TODO: store <tz-event>s instead
+  constant slot %offsets :: <vector>, required-init-keyword: offsets:;
 end class;
 
-// TODO: a make method with some error checking of the offsets
+define method initialize (zone :: <aware-zone>, #key offsets :: <sequence>, #all-keys)
+  // Validate the offsets, similar to <naive-zone>.
+  let prev-time = #f;
+  for (event in offsets)
+    let offset = event.tail;
+    if (offset > 15 * 60 | offset < -15 * 60)
+      time-error("Time zone offsets must be between -15h (%d) and +15h (%d), got %=",
+                 -15 * 60, 15 * 60, offset);
+    end;
+    if (prev-time & prev-time <= event.head)
+      time-error("Time zone data for %= is invalid; it should be older than %s",
+                 event, prev-time);
+    end;
+    prev-time := event.head;
+  end;
+end method;
 
 // Returns a string such as "UTC", "UTC-5", or "UTC+3:30".
 define function offset-to-utc-abbrev (offset :: <integer>) => (abbrev :: <string>)
@@ -56,14 +67,14 @@ end function;
 
 define method zone-abbreviation
     (zone :: <naive-zone>, #key time) => (name :: <string>)
-  zone.%abbreviation
+  zone.%abbreviation | zone.zone-name
 end method;
 
 define method zone-abbreviation
-    (zone :: <aware-zone>, #key time :: false-or(<time>))
+    (zone :: <aware-zone>, #key time :: <time>?)
  => (name :: <string>)
   // TODO
-  next-method()
+  zone.zone-name
 end method;
 
 define method local-time-zone () => (zone :: <zone>)
@@ -77,7 +88,7 @@ define method zone-offset
 end method;
 
 define method zone-offset
-    (zone :: <aware-zone>, #key time :: false-or(<time>))
+    (zone :: <aware-zone>, #key time :: <time>?)
  => (minutes :: <integer>)
   let time = time | time-now();
   let offsets = zone.%offsets;
@@ -86,13 +97,13 @@ define method zone-offset
     if (i < len)
       let offset = offsets[i];
       let start-time = offset.head;
-      if (start-time < time)
+      if (time >= start-time)
         offset.tail
       else
         loop(i + 1)
       end
     else
-      time-error("time zone %s has no offset data for time %=", time);
+      time-error("time zone %s has no data for time %=", time);
     end
   end iterate
 end method;
@@ -122,7 +133,7 @@ end method;
 // and 'mm' are hours and minutes. If `time` is supplied then the offset at
 // that time is used, otherwise the offset at the current time is used.
 define method zone-offset-string
-    (zone :: <aware-zone>, #key time :: false-or(<time>))
+    (zone :: <aware-zone>, #key time :: <time>?)
  => (offset :: <string>)
   offset-to-string(zone-offset(zone, time: time | time-now()))
 end method;
