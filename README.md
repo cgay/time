@@ -79,7 +79,7 @@ The library API can be logically separated into several parts:
 *  Like Rust's time::Instant, uses monotonic clock:
    `define class <instant> (<abstract-time>)` Is this needed?
 
-*  <date>, <naive-date>, <time-of-day>?
+*  `<date>`, `<naive-date>`, `<time-of-day>`?
 
 *  Load TZ data for "aware" time zones.
 
