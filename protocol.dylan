@@ -26,11 +26,8 @@ define generic local-time-zone () => (zone :: <zone>);
 // a time should be passed so the offset at that time may be determined. If
 // not provided, the current time is used instead.
 //
-// TODO: It is possible, at least historically, to have an offset with
-// fractional minutes so maybe this should return a number of seconds. I'm
-// concerned that would be more confusing than it's worth. Provide a precision:
-// keyword argument? Have separate functions for minutes and seconds? Needs
-// research.
+// It is possible, at least historically, to have an offset with fractional
+// minutes but we don't support it.
 define sealed generic zone-offset
     (zone :: <zone>, #key time) => (minutes :: <integer>);
 
@@ -48,27 +45,31 @@ define sealed generic zone-offset-string
 define generic zone-abbreviation
     (zone :: <zone>, #key time) => (abbrev :: <string>);
 
+// Returns true if the zone observes Daylight Savings Time at time `time`. For
+// `<naive-zone>` this is always false. For `<aware-zone>` a time should be
+// provided since the value may differ over time. If not provided, the current
+// time is used.
+define generic zone-daylight-savings?
+    (zone :: <zone>, #key time) => (dst? :: <boolean>);
+
 
 //// ==== Time
 
-// A <time> represents an instant in time, to nanosecond precision. Although
-// <time> has a <zone> associated with it, this is solely for display purposes
-// and for the convenience of not having to pass zone objects when conversion
-// to display format occurs. The seconds and nanoseconds in the <time> object
-// always represent UTC time.
+// A <time> represents an instant in UTC time, to nanosecond precision.
 define class <time> (<object>)
-  constant slot %seconds :: <integer> = 0,     init-keyword: seconds:;
+  // Number of days since the epoch. May be positive or negative.
+  constant slot %days :: <integer> = 0, init-keyword: days:;
+
+  // Number of nanoseconds within the day. May be positive or negative.
   constant slot %nanoseconds :: <integer> = 0, init-keyword: nanoseconds:;
 
-  // TODO: Consider removing this and simply (?) forcing the user to specify a
-  // zone whenever conversion to display time occurs. My suspicion is that it
-  // would be too onerous and the convenience of having the zone attached to
-  // the time outweighs the potential confusion.
-  constant slot %zone :: <zone> = $utc,   init-keyword: zone:;
+  // Time zone to use when displaying this time. This is for convenience, so
+  // that it isn't necessary to pass a zone whenever displaying the time.
+  constant slot %zone :: <zone> = $utc, init-keyword: zone:;
 end class;
 
 define constant $epoch :: <time>
-  = make(<time>, seconds: 0, nanoseconds: 0, zone: $utc);
+  = make(<time>, days: 0, nanoseconds: 0, zone: $utc);
 
 define sealed generic time-year         (t :: <time>) => (year :: <integer>);  // 1-...
 define sealed generic time-month        (t :: <time>) => (month :: <month>);
@@ -85,11 +86,6 @@ define sealed generic time-zone         (t :: <time>) => (zone :: <zone>);
 // the returned time and used for display purposes.
 define sealed generic time-now (#key zone) => (t :: <time>);
 
-// Make a <time> that represents the same time instant as `t` but in a
-// different zone.
-define sealed generic time-in-zone (t :: <time>, z :: <zone>) => (t2 :: <time>);
-define sealed generic time-in-utc (t :: <time>) => (utc :: <time>);
-
 // Decompose `t` into its component parts for presentation.
 define sealed generic time-components
     (t :: <time>)
@@ -100,7 +96,7 @@ define sealed generic time-components
 define sealed generic make-time
     (year :: <integer>, month :: <month>, day :: <integer>,
      hour :: <integer>, minute :: <integer>, second :: <integer>,
-     #key nanosecond, zone)
+     nanosecond :: <integer>, zone :: <zone>)
  => (t :: <time>);
 
 define sealed generic print-time
@@ -119,24 +115,22 @@ define sealed generic parse-time
 
 //// ==== Durations
 
-define sealed generic duration-nanoseconds (d :: <duration>) => (nanoseconds :: <integer>);
+define sealed generic duration-nanoseconds
+    (d :: <duration>) => (nanoseconds :: <integer>);
 
 // <duration> represents the difference between two times, in nanoseconds. They
-// may be positive or negative. On 64 bit systems, with 2 tag bits, this gives
-// a maximum duration of about 146 years. Durations are non-negative.
-//
-// TODO: This library uses generic-arithmetic so that this integer can be
-// 64-bits even on 32-bit systems. Use platform-specific build files.
+// may be positive or negative. On 64 bit systems, with 2 tag bits, and 1 sign
+// bit, this gives a maximum duration of 73.1 years.
 define class <duration> (<object>)
   constant slot duration-nanoseconds :: <integer> = 0,
     init-keyword: nanoseconds:;
 end;
 
-define constant $nanosecond :: <duration>  = make(<duration>, nanoseconds:          1);
-define constant $microsecond :: <duration> = make(<duration>, nanoseconds:      1_000);
-define constant $millisecond :: <duration> = make(<duration>, nanoseconds:  1_000_000);
-define constant $second :: <duration> = make(<duration>, nanoseconds:   1_000_000_000);
-define constant $minute :: <duration> = make(<duration>, nanoseconds:  60_000_000_000);
+define constant $nanosecond :: <duration>  = make(<duration>, nanoseconds:         1);
+define constant $microsecond :: <duration> = make(<duration>, nanoseconds:     1_000);
+define constant $millisecond :: <duration> = make(<duration>, nanoseconds: 1_000_000);
+define constant $second :: <duration> = make(<duration>, nanoseconds:  1_000_000_000);
+define constant $minute :: <duration> = make(<duration>, nanoseconds: 60_000_000_000);
 define constant $hour :: <duration> = make(<duration>, nanoseconds: 3_600_000_000_000);
 
 define sealed generic print-duration

@@ -20,7 +20,6 @@ define method print-object
   end;
 end method;
 
-
 // Time formats
 
 // <time-format>s are used for both printing and parsing.
@@ -168,9 +167,7 @@ define method format-zone-offset
   if (offset = 0 & utc-name)
     write(stream, utc-name);
   else
-    // TODO: deal with seconds in offset (rare, but possible, RFC3339)
     let offset-minutes = truncate/(abs(offset), 60);
-    
     write(stream, if (offset-minutes < 0) "-" else "+" end);
     let (hour, minute) = truncate/(offset-minutes, 60);
     format-ndigit-int(2, stream, hour);
@@ -283,7 +280,8 @@ define method format-duration
   write(stream, "123ns");
 end;
 
-// Is it useful to have idealized $day, $week, etc constants? C++ chrono seems to have them.
+// Is it useful to have idealized $day, $week, etc constants? C++ chrono seems
+// to have them.
 
 define method \= (d1 :: <duration>, d2 :: <duration>) => (equal? :: <boolean>)
   d1.duration-nanoseconds = d2.duration-nanoseconds
@@ -300,24 +298,29 @@ define method \- (d1 :: <duration>, d2 :: <duration>) => (d :: <duration>)
 end;
 
 define method \- (t :: <time>, d :: <duration>) => (d :: <time>)
-  let (secs, nanos) = floor/(d.duration-nanoseconds, 1_000_000_000);
-  let seconds = t.%seconds - secs;
+  let (days, nanos) = truncate/(d.duration-nanoseconds, $nanos/day);
+  let days = t.%days - days;
   let nanos = t.%nanoseconds - nanos;
   if (nanos < 0)
-    seconds := seconds - 1;
-    nanos := abs(nanos);
+    days := days - 1;
   end;
-  make(<time>, seconds: seconds, nanoseconds: nanos)
+  make(<time>, days: days, nanoseconds: nanos)
 end method;
 
 define method \+ (t :: <time>, d :: <duration>) => (t :: <time>)
-  // TODO
-  make(<time>)
-end;
+  let total-nanos = d.duration-nanoseconds;
+  let days = floor/(total-nanos, $nanos/day);
+  let nanos = total-nanos - days * $nanos/day;
+  let new-days = t.%days + days;
+  let new-nanos = t.%nanoseconds + nanos;
+  if (abs(new-nanos) >= $nanos/day)
+    new-days := new-days + if (new-nanos < 0) -1 else 1 end;
+  end;
+  make(<time>, days: new-days, nanoseconds: new-nanos)
+end method;
 
-define method \+ (d :: <duration>, t :: <time>) => (t :: <time>)
-  // TODO
-  make(<time>)
+define inline method \+ (d :: <duration>, t :: <time>) => (t :: <time>)
+  t + d
 end;
 
 define method \* (d :: <duration>, r :: <real>) => (d :: <duration>)
@@ -334,36 +337,80 @@ define method parse-duration (s :: <string>) => (d :: <duration>)
 end;
 
 
-
-define method time-in-zone (t :: <time>, z :: <zone>) => (t2 :: <time>)
-  // TODO: stub
-  t
-end;
-
-define method time-in-utc (t :: <time>) => (utc :: <time>)
-  time-in-zone(t, $utc)
-end;
-
-define method time-components
-    (t :: <time>)
- => (year :: <integer>, month :: <month>, day-of-month :: <integer>,
-     hour :: <integer>, minute :: <integer>, second :: <integer>,
-     nanosecond :: <integer>, zone :: <zone>, day-of-week :: <day>)
-  let sec = t.%seconds;
-  let time_t = make(<c-time-t*>);
-  let year = floor/(sec, 86400 * 365);
-  values(0, $january, 0, 0, 0, 0, 0, $utc, $monday)
+// Returns number of days since civil 1970-01-01.  Negative values indicate
+// days prior to 1970-01-01. This directly follows the definition of
+// days_from_civil in http://howardhinnant.github.io/date_algorithms.html.
+define inline function days-from-civil
+    (y :: <integer>, m :: <integer>, d :: <integer>) => (days :: <integer>)
+  let y = y - if (m <= 2) 1 else 0 end;
+  let era = floor/(if (y >= 0) y else y - 399 end, 400);
+  let yoe = y - era * 400;                                         // [0, 399]
+  let doy = floor/(153 * (m + (m > 2 & -3 | 9)) + 2, 5) + (d - 1); // [0, 365]
+  let doe = yoe * 365 + floor/(yoe, 4) - floor/(yoe, 100) + doy;   // [0, 146096]
+  era * 146097 + doe - 719468
 end;
 
 define method make-time
-    (year :: <integer>, month :: <month>, day :: <integer>,
-     hour :: <integer>, minute :: <integer>, second :: <integer>,
-     #key nanosecond :: <integer> = 0,
-          zone :: <zone> = $utc)
- => (t :: <time>)
-  // TODO: stub
-  make(<time>)
-end;
+    (y :: <integer>, mon :: <month>, d :: <integer>, h :: <integer>,
+     min :: <integer>, sec :: <integer>, nano :: <integer>, zone :: <zone>)
+ => (_ :: <time>)
+  make(<time>,
+       days: days-from-civil(y, month-number(mon), d),
+       nanoseconds: (h * 60 * 60_000_000_000
+                       + min * 60_000_000_000
+                       + sec * 1_000_000_000
+                       + nano),
+       zone: zone)
+end method;
+
+// Returns year/month/day triple in civil calendar.  This directly follows the
+// definition of civil_from_days in http://howardhinnant.github.io/date_algorithms.html.
+define inline function civil-from-days
+    (z :: <integer>) => (year :: <integer>, month :: <integer>, day :: <integer>)
+  let z = z + 719468;
+  let era = floor/(if (z >= 0) z else z - 146096 end, 146097);
+  let doe = z - era * 146097;   // [0, 146096]
+  let yoe = floor/(doe
+                     - floor/(doe, 1460)
+                     - floor/(doe, 36524)
+                     - floor/(doe, 146096),
+                   365);
+  let y = yoe + era * 400;
+  let doy = doe - (yoe * 365 + floor/(yoe, 4) - floor/(yoe, 100));
+  let mp = floor/(doy * 5 + 2, 153);
+  let d = doy - floor/(mp * 153 + 2, 5) + 1;
+  let m = mp + if (mp < 10) 3 else -9 end;
+  values(y + if (m <= 2) 1 else 0 end, m, d)
+end function;
+
+// $nanos/day should only be used for durations, which use idealized days.
+define constant $nanos/day :: <integer> = 1_000_000_000 * 60 * 60 * 24;
+define constant $nanos/hour :: <integer> = 3_600_000_000_000;
+define constant $nanos/minute :: <integer> =  60_000_000_000;
+define constant $nanos/second :: <integer> =   1_000_000_000;
+
+define method time-components
+    (t :: <time>)
+ => (y :: <integer>, mon :: <month>, d :: <integer>, h :: <integer>,
+     min :: <integer>, sec :: <integer>, nano :: <integer>, zone :: <zone>,
+     dow :: <day>)
+  // TODO: it would be faster to bit-pack the hour/minute/second/nanos as
+  // separate numbers (30+6+6+5=47 bits required) rather than doing all this
+  // division.
+  let (year, month, day) = civil-from-days(t.%days);
+  let month = as(<month>, month);
+  let nanos = t.%nanoseconds;
+  let hour = floor/(nanos, $nanos/hour);
+  nanos := nanos - hour * $nanos/hour;
+  let minute = floor/(nanos, $nanos/minute);
+  nanos := nanos - minute * $nanos/minute;
+  let second = floor/(nanos, $nanos/second);
+  let nano = nanos - second * $nanos/second;
+  // Note: we return the zone to mirror encode-time.
+  values(year, month, day, hour, minute, second, nano, t.%zone,
+         // TODO: day of week
+         $monday)
+end method;
 
 define method time-year (t :: <time>) => (year :: <integer>)
   time-components(t) // Only first value returned.
@@ -494,37 +541,38 @@ define method time-now (#key zone :: <zone> = local-time-zone()) => (t :: <time>
   let spec = make(<timespec*>);
   let result = clock-gettime(get-clock-realtime(), spec);
   make(<time>,
-       seconds: spec.timespec-seconds,
-       nanoseconds: spec.timespec-nanoseconds,
+       days: floor/(spec.timespec-seconds, 24 * 60 * 60),
+       nanoseconds: spec.timespec-nanoseconds * 24 * 60 * 60,
        zone: zone)
 end method;
 
 define method time-zone (t :: <time>) => (zone :: <zone>)
-  t.%zone | $utc
+  t.%zone
 end;
 
 
 //// Comparisons
 
-// Returns true if `t1` and `t2` represent the same time instant. Two
-// times can be equal even if they are in different zones. For
-// example, 6:00 +0200 CEST and 4:00 UTC are equal.
+// Since zone is used purely for display purposes, it is ignored during
+// arithmetic and comparison operations.
+
+// Returns true if `t1` and `t2` represent the same time instant.
 define method \= (t1 :: <time>, t2 :: <time>) => (b :: <boolean>)
-  let utc1 = time-in-utc(t1);
-  let utc2 = time-in-utc(t2);
-  time-second(utc1) = time-second(utc2)
-    & time-nanosecond(utc1) = time-nanosecond(utc2)
+  t1.%days = t2.%days
+    & t1.%nanoseconds = t2.%nanoseconds
 end;
 
+// Returns true if `t1` is before `t2`.
 define method \< (t1 :: <time>, t2 :: <time>) => (b :: <boolean>)
-  let utc1 = time-in-utc(t1);
-  let utc2 = time-in-utc(t2);
-  let sec1 = time-second(utc1);
-  let sec2 = time-second(utc2);
-  sec1 < sec2 | (sec1 == sec2 & (time-nanosecond(utc1) < time-nanosecond(utc2)))
+  let days1 = t1.%days;
+  let days2 = t2.%days;
+  days1 < days2 | (days1 == days2 & (t1.%nanoseconds < t2.%nanoseconds))
 end;
 
+// Returns the difference between time `t1` and time `t2` as a <duration>,
+// which may be negative.
 define method \- (t1 :: <time>, t2 :: <time>) => (d :: <duration>)
+/*
   let sec1 = t1.%seconds;
   let sec2 = t2.%seconds;
   let nano1 = t1.%nanoseconds;
@@ -536,4 +584,7 @@ define method \- (t1 :: <time>, t2 :: <time>) => (d :: <duration>)
     nanoseconds := 1_000_000_000 + nanoseconds;
   end;
   make(<duration>, nanoseconds: nanoseconds)
+    */
+  // TODO
+  $nanosecond
 end method;

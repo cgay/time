@@ -67,9 +67,8 @@ define module time
     $august, $september, $october, $november, $december,
 
     // Conversions
-    time-in-zone,
-    time-in-utc,
-    make-time,                  // from components
+    make-time,                  // from its components
+    time-components,
     parse-time,                 // TODO: $iso-8601-format etc?
     parse-duration,
     parse-day,                  // TODO: not sure about this
@@ -88,11 +87,12 @@ define module time
 
     // Zones
     <zone>,
-    local-time-zone,
     zone-abbreviation,
+    zone-daylight-savings?,
     zone-name,
     zone-offset,
     zone-offset-string,
+    local-time-zone,
     $utc;
 end module time;
 
@@ -116,8 +116,9 @@ define module %time
 
   // Exports for tests only.
   export
-    %seconds,
+    %days,
     %nanoseconds,
     <naive-zone>,
-    <aware-zone>;
+    <aware-zone>,
+    <subzone>;
 end module %time;

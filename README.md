@@ -9,13 +9,18 @@ for several reasons:
 *  Better naming -- What can I say? I just never liked the name `<date>` to
    represent an instant in time.
 
-I must acknowledge that the development of this library was influenced to some
-extent by the Go time package. I like much of what they've done there (except
-for the horrific `time.Parse` API) and I used it as a reference to make sure I
-wasn't doing anything too crazy. To a smaller extent I used the Rust and Python
-docs as inspiration also.
+The development of this library was influenced to some extent by the time
+libraries in Go, Common Lisp (local-time), Python, and Rust, in about that
+order. I used them as a reference to make sure I wasn't doing anything too
+crazy.
 
 ## High Level Overview
+
+NOTE: The first version of this library assumes 64-bit integers. The
+contortions necessary to make it work on 32-bit were more than I wanted to deal
+with. My plan is to make that work by using <double-integer> on 32-bit
+architectures, but I don't want to pay the price in speed for doing that on
+the more common 64-bit platforms.
 
 This section contains a brief overview of the `time` library to help you get a
 quick feel for how it is organized. See the reference documentation for more
@@ -36,9 +41,9 @@ The `time` library exports a single module, `time` which exports these classes:
 * `<naive-zone>` - A time zone that always represents the same offset from
   UTC. The primary example of this is the `$utc` time zone itself.
 
-* `<aware-zone>` - A time zone that may have different offsets from UTC over
-  time due to daylight savings time and governmental action. These zones use
-  data from the the tzinfo (TODO: link) package.
+* `<aware-zone>` - A time zone that may have different abbreviations and
+  offsets from UTC over time due to daylight savings time and governmental
+  action. These zones use data from the the tzinfo (TODO: link) package.
 
 * `<day>` - Represents a day of the week, with a name and short name.
 
@@ -106,3 +111,4 @@ The library API can be logically separated into several parts:
 * https://tools.ietf.org/html/rfc2822#page-14
 * https://tools.ietf.org/html/rfc3339
 * https://tools.ietf.org/html/rfc5322#page-14
+* http://howardhinnant.github.io/date_algorithms.html
