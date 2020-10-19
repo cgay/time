@@ -169,14 +169,11 @@ define sealed domain \- (<time>, <time>);
 
 // Describes a format for outputting a <time>. See $rfc3339 below for an example.
 define class <time-format> (<object>)
-  constant slot time-format-original :: <string>,
-    required-init-keyword: original:; // descriptor? pattern? string?
+  constant slot time-format-string :: <string>,
+    required-init-keyword: string:;
   constant slot time-format-parsed :: <sequence>,
     init-keyword: parsed:;
 end class;
-
-define constant $rfc3339
-  = make(<time-format>, original: "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}{offset}");
 
 
 //// ==== Days

@@ -15,8 +15,25 @@ end;
 
 define method print-object
     (time :: <time>, stream :: <stream>) => ()
-  printing-object (time, stream)
-    format-time(stream, $rfc3339, time); 
+  if (*print-escape?*)
+    printing-object (time, stream)
+      format(stream, "%dd, %dns", time.%days, time.%nanoseconds);
+      // later: format-time(stream, $rfc3339, time); 
+    end;
+  else
+    format-time(stream, $rfc3339, time);
+  end;
+end method;
+
+define method print-object
+    (d :: <duration>, stream :: <stream>) => ()
+  if (*print-escape?*)
+    printing-object (d, stream)
+      format(stream, "%dns", d.duration-nanoseconds);
+      // TODO: format-duration(stream, ..., d)
+    end;
+  else
+    format-duration(stream, $duration-short-format, d);
   end;
 end method;
 
@@ -25,16 +42,19 @@ end method;
 // <time-format>s are used for both printing and parsing.
 
 define method make
-    (class == <time-format>, #key original :: <string>, parsed, #all-keys)
+    (class == <time-format>, #rest args, #key string :: <string>, parsed)
  => (_ :: <time-format>)
-  next-method(original: original,
-              parsed: parsed | parse-time-format(original))
+  format-out("make(<time-format>, %=\n", args);
+  force-out();
+  next-method(class,
+              string: string,
+              parsed: parsed | parse-time-format(string))
 end method;
 
 define method print-object
     (fmt :: <time-format>, stream :: <stream>) => ()
   printing-object (fmt, stream)
-    write(stream, time-format-original(fmt));
+    write(stream, time-format-string(fmt));
   end;
 end method;
 
@@ -90,7 +110,9 @@ end function;
 define table $time-format-map :: <string-table>
   = { "yyyy"   => pair(0, curry(format-ndigit-int, 4)),
       "yy"     => pair(0, curry(format-ndigit-int-modn, 2, 100)),
-      "mm"     => pair(1, curry(format-ndigit-int, 2)),
+      "mm"     => pair(1, method (stream, month)
+                            format-ndigit-int(2, stream, month.month-number)
+                          end),
       "dd"     => pair(2, curry(format-ndigit-int, 2)),
       "HH"     => pair(3, curry(format-ndigit-int, 2)),
       "hh"     => pair(3, format-hour-12),
@@ -121,29 +143,29 @@ define table $time-format-map :: <string-table>
      };
 
 // TODO: ...-modn name is confusing with n parameter.
-define inline function format-ndigit-int-modn
+define /* inline */ function format-ndigit-int-modn
     (digits :: <integer>, mod :: <integer>, stream :: <stream>, n :: <integer>) => ()
   let n :: <integer> = modulo(n, mod);
   write(stream, integer-to-string(n, size: digits, fill: '0'));
 end function;
 
-define inline function format-ndigit-int
+define /* inline */ function format-ndigit-int
     (digits :: <integer>, stream :: <stream>, n :: <integer>) => ()
   write(stream, integer-to-string(n, size: digits, fill: '0'));
 end function;
 
-define inline function format-hour-12
+define /* inline */ function format-hour-12
     (stream :: <stream>, hour24 :: <integer>) => ()
   let hour = if (hour24 < 12) hour24 else hour24 - 12 end;
   write(stream, integer-to-string(hour, size: 2, fill: '0'));
 end function;
 
-define inline function format-lowercase-am-pm
+define /* inline */ function format-lowercase-am-pm
     (stream :: <stream>, hour :: <integer>) => ()
   write(stream, if (hour < 12) "am" else "pm" end);
 end function;
 
-define inline function format-uppercase-am-pm
+define /* inline */ function format-uppercase-am-pm
     (stream :: <stream>, hour :: <integer>) => ()
   write(stream, if (hour < 12) "AM" else "PM" end);
 end function;
@@ -175,22 +197,22 @@ define method format-zone-offset
   end;
 end method;
 
-define inline function format-short-weekday
+define /* inline */ function format-short-weekday
     (stream :: <stream>, day :: <day>) => ()
   write(stream, day.day-short-name);
 end function;
 
-define inline function format-long-weekday
+define /* inline */ function format-long-weekday
     (stream :: <stream>, day :: <day>) => ()
   write(stream, day.day-long-name);
 end function;
 
-define inline function format-short-month-name
+define /* inline */ function format-short-month-name
     (stream :: <stream>, month :: <month>) => ()
   write(stream, month.month-short-name);
 end function;
 
-define inline function format-long-month-name
+define /* inline */ function format-long-month-name
     (stream :: <stream>, month :: <month>) => ()
   write(stream, month.month-long-name);
 end function;
@@ -204,18 +226,19 @@ define method print-time
   format-time(stream, format, time);
 end method;
 
-define inline method format-time
+define /* inline */ method format-time
     (stream :: <stream>, fmt :: <time-format>, time :: <time>) => ()
   format-time(stream, time-format-parsed(fmt), time);
 end method;
 
-define inline method format-time
+// If you care about performance of this formatting, make a <time-format>
+// explicitly instead, so it will be parsed only once.
+define /* inline */ method format-time
     (stream :: <stream>, fmt :: <string>, time :: <time>) => ()
-  // TODO: memoize fmt
   format-time(stream, parse-time-format(fmt), time);
 end method;
 
-define inline method format-time
+define /* inline */ method format-time
     (stream :: <stream>, fmt :: <sequence>, time :: <time>) => ()
   // I'm assuming that v is stack allocated. Verify.
   let (#rest v) = time-components(time);
@@ -233,6 +256,9 @@ define inline method format-time
     end;
   end;
 end method;
+
+define constant $rfc3339 :: <time-format>
+  = make(<time-format>, string: "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}{offset}");
 
 
 // ==== Time parsing
@@ -319,7 +345,7 @@ define method \+ (t :: <time>, d :: <duration>) => (t :: <time>)
   make(<time>, days: new-days, nanoseconds: new-nanos)
 end method;
 
-define inline method \+ (d :: <duration>, t :: <time>) => (t :: <time>)
+define /* inline */ method \+ (d :: <duration>, t :: <time>) => (t :: <time>)
   t + d
 end;
 
@@ -327,7 +353,7 @@ define method \* (d :: <duration>, r :: <real>) => (d :: <duration>)
   make(<duration>, nanoseconds: d.duration-nanoseconds * r)
 end;
 
-define inline-only method \* (r :: <real>, d :: <duration>) => (d :: <duration>)
+define /* inline */ method \* (r :: <real>, d :: <duration>) => (d :: <duration>)
   d * r
 end;
 
@@ -340,7 +366,7 @@ end;
 // Returns number of days since civil 1970-01-01.  Negative values indicate
 // days prior to 1970-01-01. This directly follows the definition of
 // days_from_civil in http://howardhinnant.github.io/date_algorithms.html.
-define inline function days-from-civil
+define /* inline */ function days-from-civil
     (y :: <integer>, m :: <integer>, d :: <integer>) => (days :: <integer>)
   let y = y - if (m <= 2) 1 else 0 end;
   let era = floor/(if (y >= 0) y else y - 399 end, 400);
@@ -365,7 +391,7 @@ end method;
 
 // Returns year/month/day triple in civil calendar.  This directly follows the
 // definition of civil_from_days in http://howardhinnant.github.io/date_algorithms.html.
-define inline function civil-from-days
+define /* inline */ function civil-from-days
     (z :: <integer>) => (year :: <integer>, month :: <integer>, day :: <integer>)
   let z = z + 719468;
   let era = floor/(if (z >= 0) z else z - 146096 end, 146097);

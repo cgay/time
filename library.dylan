@@ -106,7 +106,7 @@ define module %time
     import: { format, format-to-string };
   use format-out;
   use print,
-    import: { print-object, printing-object };
+    import: { print-object, printing-object, *print-escape?* };
   use standard-io,
     import: { *standard-output* };
   use streams,

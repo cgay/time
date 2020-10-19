@@ -70,14 +70,7 @@ define function zone-subzone
   iterate loop (i :: <integer> = 0)
     if (i < len)
       let subzone :: <subzone> = subs[i];
-      format-out("checking %d.%d\n", 
-                 subzone.subzone-start-time.%days,
-                 subzone.subzone-start-time.%nanoseconds);
       if (time >= subzone.subzone-start-time)
-        format-out("%d.%d >= %d.%d\n",
-                   time.%days, time.%nanoseconds,
-                   subzone.subzone-start-time.%days,
-                   subzone.subzone-start-time.%nanoseconds);
         subzone
       else
         loop(i + 1)
@@ -124,7 +117,7 @@ define method zone-daylight-savings?
   subzone-dst?(zone-subzone(zone, time))
 end method;
 
-define inline function offset-to-string
+define /* inline */ function offset-to-string
     (offset :: <integer>) => (_ :: <string>)
   if (offset = 0)
     "+00:00"                    // frequent case? avoid allocation.

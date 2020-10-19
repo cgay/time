@@ -85,4 +85,9 @@ define test test-time-< ()
   assert-true(make(<time>, days: 1, nanoseconds: 200) < make(<time>, days: 2, nanoseconds: 100));
 end test;
 
+define test test-print-object ()
+  assert-equal("1970-01-01T00:00:00+0000", format-to-string("%s", $epoch));
+  assert-equal("{<time> ", copy-sequence(format-to-string("%=", $epoch), end: 8));
+end test;
+
 run-test-application();
