@@ -1,17 +1,64 @@
 Module: %time
 Synopsis: Time and duration implementations (because they're somewhat intertwined)
 
-/* TODO
+// --- <time> and its generic functions ---
 
-* make %= print something reasonable for all classes.
+// A <time> represents an instant in UTC time, to nanosecond precision.
+define class <time> (<object>)
+  // Number of days since the epoch. May be positive or negative.
+  constant slot %days :: <integer> = 0, init-keyword: days:;
 
-*/
+  // Number of nanoseconds within the day. May be positive or negative.
+  constant slot %nanoseconds :: <integer> = 0, init-keyword: nanoseconds:;
 
-define function time-error(msg :: <string>, #rest format-args)
-  error(make(<time-error>,
-             format-string: msg,
-             format-arguments: format-args));
-end;
+  // Time zone to use when displaying this time. This is for convenience, so
+  // that it isn't necessary to pass a zone whenever displaying the time.
+  constant slot %zone :: <zone> = $utc, init-keyword: zone:;
+end class;
+
+define constant $epoch :: <time>
+  = make(<time>, days: 0, nanoseconds: 0, zone: $utc);
+
+define sealed generic time-year         (t :: <time>) => (year :: <integer>);  // 1-...
+define sealed generic time-month        (t :: <time>) => (month :: <month>);
+//             time-day-of-year?
+define sealed generic time-day-of-month (t :: <time>) => (day :: <integer>);   // 1-31
+define sealed generic time-day-of-week  (t :: <time>) => (day :: <day>);
+define sealed generic time-hour         (t :: <time>) => (hour :: <integer>);  // 0-23
+define sealed generic time-minute       (t :: <time>) => (minute :: <integer>); // 0-59
+define sealed generic time-second       (t :: <time>) => (second :: <integer>); // 0-60
+define sealed generic time-nanosecond   (t :: <time>) => (nanosecond :: <integer>);
+define sealed generic time-zone         (t :: <time>) => (zone :: <zone>);
+
+// Returns the current time. If `zone` is supplied then it is associated with
+// the returned time and used for display purposes.
+define sealed generic time-now (#key zone) => (t :: <time>);
+
+// Decompose `t` into its component parts for presentation.
+define sealed generic time-components
+    (t :: <time>)
+ => (year :: <integer>, month :: <month>, day-of-month :: <integer>,
+     hour :: <integer>, minute :: <integer>, second :: <integer>,
+     nanosecond :: <integer>, zone :: <zone>, day-of-week :: <day>);
+
+define sealed generic make-time
+    (year :: <integer>, month :: <month>, day :: <integer>,
+     hour :: <integer>, minute :: <integer>, second :: <integer>,
+     nanosecond :: <integer>, zone :: <zone>)
+ => (t :: <time>);
+
+define sealed generic print-time
+    (time :: <time>, #key stream, format) => ();
+
+define sealed generic format-time
+    (stream :: <stream>, format :: <object>, time :: <time>) => ();
+
+define sealed generic parse-time
+    (time :: <string>, #key format, zone) => (time :: <time>);
+
+// TODO:
+// define sealed generic round-time (t :: <time>, d :: <duration>) => (t :: <time>);
+// define sealed generic truncate-time (t :: <time>, d :: <duration>) => (t :: <time>);
 
 define method print-object
     (time :: <time>, stream :: <stream>) => ()
@@ -25,6 +72,38 @@ define method print-object
   end;
 end method;
 
+
+// --- <duration> and its generic functions ---
+
+// <duration> represents the difference between two times, in nanoseconds. They
+// may be positive or negative. On 64 bit systems, with 2 tag bits, and 1 sign
+// bit, this gives a maximum duration of 73.1 years.
+define class <duration> (<object>)
+  constant slot duration-nanoseconds :: <integer> = 0,
+    init-keyword: nanoseconds:;
+end;
+
+define sealed generic duration-nanoseconds
+    (d :: <duration>) => (nanoseconds :: <integer>);
+
+define sealed generic print-duration
+    (duration :: <duration>, #key stream, format, precision) => ();
+
+define sealed generic parse-duration
+    (string :: <string>) => (duration :: <duration>);
+
+define sealed generic format-duration
+    (stream :: <stream>, format :: <object>, duration :: <duration>,
+     #key precision)
+ => ();
+
+define constant $nanosecond :: <duration>  = make(<duration>, nanoseconds:          1);
+define constant $microsecond :: <duration> = make(<duration>, nanoseconds:      1_000);
+define constant $millisecond :: <duration> = make(<duration>, nanoseconds:  1_000_000);
+define constant $second :: <duration> = make(<duration>, nanoseconds:   1_000_000_000);
+define constant $minute :: <duration> = make(<duration>, nanoseconds:  60_000_000_000);
+define constant $hour :: <duration> = make(<duration>, nanoseconds: 3_600_000_000_000);
+
 define method print-object
     (d :: <duration>, stream :: <stream>) => ()
   if (*print-escape?*)
@@ -37,301 +116,56 @@ define method print-object
   end;
 end method;
 
-// Time formats
-
-// <time-format>s are used for both printing and parsing.
-
-define method make
-    (class == <time-format>, #rest args, #key string :: <string>, parsed)
- => (_ :: <time-format>)
-  format-out("make(<time-format>, %=\n", args);
-  force-out();
-  next-method(class,
-              string: string,
-              parsed: parsed | parse-time-format(string))
-end method;
-
-define method print-object
-    (fmt :: <time-format>, stream :: <stream>) => ()
-  printing-object (fmt, stream)
-    write(stream, time-format-string(fmt));
-  end;
-end method;
-
-// Parse a time format string into a sequence of literal strings and formatter functions
-// like #"four-digit-year".
-//
-// TODO: there's no way to escape the {} characters if you want those literally
-// in the time format. Does it matter?
-define function parse-time-format (descriptor :: <string>) => (_ :: <sequence>)
-  let len :: <integer> = descriptor.size;
-  iterate loop (bpos :: <integer> = 0, epos :: <integer> = 0, parsed :: <list> = #())
-    if (epos >= len)
-      reverse!(if (bpos < epos)
-                 pair(copy-sequence(descriptor, start: bpos), parsed)
-               else
-                 if (empty?(parsed))
-                   time-error("empty formatter string");
-                 else
-                   parsed
-                 end
-               end)
-    else
-      let ch :: <character> = descriptor[epos];
-      select (ch)
-        '{' => loop(epos + 1,
-                    epos + 1,
-                    if (bpos < epos)
-                      pair(copy-sequence(descriptor, start: bpos, end: epos),
-                           parsed)
-                    else
-                      parsed
-                    end);
-        '}' => loop(epos + 1,
-                    epos + 1,
-                    begin
-                      let name = copy-sequence(descriptor, start: bpos, end: epos);
-                      pair(element($time-format-map, name, default: #f)
-                             | time-error("invalid time component specifier: %=", name),
-                           parsed)
-                    end);
-        otherwise =>
-          loop(bpos, epos + 1, parsed);
-      end select
-    end
-  end iterate
-end function;
-
-// Each value is a pair of #(time-element-index . formatter-function) where
-// time-element-index is the index into the return values list of the
-// time-components function. 0 = year, 1 = month, etc
-//
-// TODO: make this extensible
-define table $time-format-map :: <string-table>
-  = { "yyyy"   => pair(0, curry(format-ndigit-int, 4)),
-      "yy"     => pair(0, curry(format-ndigit-int-modn, 2, 100)),
-      "mm"     => pair(1, method (stream, month)
-                            format-ndigit-int(2, stream, month.month-number)
-                          end),
-      "dd"     => pair(2, curry(format-ndigit-int, 2)),
-      "HH"     => pair(3, curry(format-ndigit-int, 2)),
-      "hh"     => pair(3, format-hour-12),
-      "am"     => pair(3, format-lowercase-am-pm),
-      "pm"     => pair(3, format-lowercase-am-pm),
-      "AM"     => pair(3, format-uppercase-am-pm),
-      "PM"     => pair(3, format-uppercase-am-pm),
-      "MM"     => pair(4, curry(format-ndigit-int, 2)),
-      "SS"     => pair(5, curry(format-ndigit-int, 2)),
-      "ff"     => pair(6, curry(format-ndigit-int-modn, 2, 100)), // 'f' for fraction
-      "fff"    => pair(6, curry(format-ndigit-int-modn, 3, 1000)),
-      "ffffff" => pair(6, curry(format-ndigit-int-modn, 6, 1_000_000)),
-      "fffffffff" => pair(6, curry(format-ndigit-int-modn, 9, 1_000_000_000)),
-      "millis" => pair(6, curry(format-ndigit-int-modn, 3, 1000)),
-      "micros" => pair(6, curry(format-ndigit-int-modn, 6, 1_000_000)),
-      "nanos"  => pair(6, curry(format-ndigit-int-modn, 9, 1_000_000_000)),
-
-      "zone"     => pair(7, format-zone-name),       // UTC, PST, etc
-      "offset"   => pair(7, rcurry(format-zone-offset, colon?: #f, utc-name: #f)), // +0000
-      "offset:"  => pair(7, rcurry(format-zone-offset, colon?: #t, utc-name: #f)), // +00:00
-      "offset:Z" => pair(7, rcurry(format-zone-offset, colon?: #t, utc-name: "Z")), // Z or +02:00
-      "offsetZ:" => pair(7, rcurry(format-zone-offset, colon?: #t, utc-name: "Z")), // ditto
-
-      "day"     => pair(8, format-short-weekday),
-      "weekday" => pair(8, format-long-weekday),
-      "mon"     => pair(1, format-short-month-name),
-      "month"   => pair(1, format-long-month-name)
-     };
-
-// TODO: ...-modn name is confusing with n parameter.
-define /* inline */ function format-ndigit-int-modn
-    (digits :: <integer>, mod :: <integer>, stream :: <stream>, n :: <integer>) => ()
-  let n :: <integer> = modulo(n, mod);
-  write(stream, integer-to-string(n, size: digits, fill: '0'));
-end function;
-
-define /* inline */ function format-ndigit-int
-    (digits :: <integer>, stream :: <stream>, n :: <integer>) => ()
-  write(stream, integer-to-string(n, size: digits, fill: '0'));
-end function;
-
-define /* inline */ function format-hour-12
-    (stream :: <stream>, hour24 :: <integer>) => ()
-  let hour = if (hour24 < 12) hour24 else hour24 - 12 end;
-  write(stream, integer-to-string(hour, size: 2, fill: '0'));
-end function;
-
-define /* inline */ function format-lowercase-am-pm
-    (stream :: <stream>, hour :: <integer>) => ()
-  write(stream, if (hour < 12) "am" else "pm" end);
-end function;
-
-define /* inline */ function format-uppercase-am-pm
-    (stream :: <stream>, hour :: <integer>) => ()
-  write(stream, if (hour < 12) "AM" else "PM" end);
-end function;
-
-define method format-zone-name
-    (stream :: <stream>, zone :: <naive-zone>)
-  format-zone-offset(stream, zone);
-end method;
-
-define method format-zone-name
-    (stream :: <stream>, zone :: <aware-zone>)
-  write(stream, zone.zone-name);
-end method;
-
-define method format-zone-offset
-    (stream :: <stream>, zone :: <naive-zone>,
-     #key colon? :: <boolean>,
-          utc-name :: <string>?)
- => ()
-  let offset = zone-offset(zone);
-  if (offset = 0 & utc-name)
-    write(stream, utc-name);
-  else
-    let offset-minutes = truncate/(abs(offset), 60);
-    write(stream, if (offset-minutes < 0) "-" else "+" end);
-    let (hour, minute) = truncate/(offset-minutes, 60);
-    format-ndigit-int(2, stream, hour);
-    format-ndigit-int(2, stream, minute);
-  end;
-end method;
-
-define /* inline */ function format-short-weekday
-    (stream :: <stream>, day :: <day>) => ()
-  write(stream, day.day-short-name);
-end function;
-
-define /* inline */ function format-long-weekday
-    (stream :: <stream>, day :: <day>) => ()
-  write(stream, day.day-long-name);
-end function;
-
-define /* inline */ function format-short-month-name
-    (stream :: <stream>, month :: <month>) => ()
-  write(stream, month.month-short-name);
-end function;
-
-define /* inline */ function format-long-month-name
-    (stream :: <stream>, month :: <month>) => ()
-  write(stream, month.month-long-name);
-end function;
-
-// Print `time` on `stream` based on `format`.
-define method print-time
-    (time :: <time>,
-     #key stream :: <stream> = *standard-output*,
-          format :: <time-format> = $rfc3339)
- => ()
-  format-time(stream, format, time);
-end method;
-
-define /* inline */ method format-time
-    (stream :: <stream>, fmt :: <time-format>, time :: <time>) => ()
-  format-time(stream, time-format-parsed(fmt), time);
-end method;
-
-// If you care about performance of this formatting, make a <time-format>
-// explicitly instead, so it will be parsed only once.
-define /* inline */ method format-time
-    (stream :: <stream>, fmt :: <string>, time :: <time>) => ()
-  format-time(stream, parse-time-format(fmt), time);
-end method;
-
-define /* inline */ method format-time
-    (stream :: <stream>, fmt :: <sequence>, time :: <time>) => ()
-  // I'm assuming that v is stack allocated. Verify.
-  let (#rest v) = time-components(time);
-  for (item in fmt)
-    select (item by instance?)
-      <string>
-        => write(stream, item);
-      <pair>
-        => begin
-             let index :: <integer> = item.head;
-             let formatter :: <function> = item.tail;
-             formatter(stream, v[index]);
-           end;
-      otherwise  => time-error("invalid time format element: %=", item);
-    end;
-  end;
-end method;
-
-define constant $rfc3339 :: <time-format>
-  = make(<time-format>, string: "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}{offset}");
-
-
-// ==== Time parsing
-
-define method parse-time
-    (input :: <string>, #key format :: <time-format> = $rfc3339, zone :: <zone> = $utc)
- => (time :: <time>)
-  // TODO
-  time-now()
-end method;
-
-
-// ==== Duration formats
-
-define abstract class <duration-format> (<object>) end;
-
-define class <duration-short-format> (<duration-format>) end;
-define class <duration-long-format> (<duration-format>) end;
-
-define constant $duration-short-format = make(<duration-short-format>);
-define constant $duration-long-format = make(<duration-long-format>);
-
-define method print-duration
-    (duration :: <duration>,
-     #key stream :: <stream> = *standard-output*,
-          format :: <duration-format> = $duration-short-format,
-          precision :: <duration> = $nanosecond)
- => ()
-  format-duration(stream, format, duration, precision: precision);
-end method;
-
-define method format-duration
-    (stream :: <stream>, format :: <string>, duration :: <duration>,
-     #key precision :: <duration> = $nanosecond)
- => ()
-  // TODO: parse `format` and cache it
-  write(stream, "456n");
-end method;
-
-define method format-duration
-    (stream :: <stream>, format :: <duration-short-format>, duration :: <duration>,
-     #key precision :: <duration> = $nanosecond)
- => ()
-  // TODO: I like the way Go outputs durations heuristically.
-  write(stream, "123ns");
-end;
 
 // Is it useful to have idealized $day, $week, etc constants? C++ chrono seems
 // to have them.
 
-define method \= (d1 :: <duration>, d2 :: <duration>) => (equal? :: <boolean>)
+
+// --- Arithmetic and comparisons ---
+
+// Since zone is used purely for display purposes, it is ignored during
+// arithmetic and comparison operations.
+
+define sealed domain \+ (<duration>, <duration>);
+define sealed domain \+ (<time>, <duration>);
+define sealed domain \+ (<duration>, <time>);
+define sealed domain \- (<time>, <time>);
+define sealed domain \- (<time>, <duration>);
+define sealed domain \- (<duration>, <duration>);
+define sealed domain \* (<duration>, <real>);
+define sealed domain \* (<real>, <duration>);
+define sealed domain \/ (<duration>, <real>);
+
+define sealed domain \= (<time>, <time>);
+define sealed domain \= (<duration>, <duration>);
+define sealed domain \< (<time>, <time>);
+
+
+// =
+
+define method \= (t1 :: <time>, t2 :: <time>) => (_ :: <boolean>)
+  t1.%days = t2.%days
+    & t1.%nanoseconds = t2.%nanoseconds
+end;
+
+define method \= (d1 :: <duration>, d2 :: <duration>) => (_ :: <boolean>)
   d1.duration-nanoseconds = d2.duration-nanoseconds
 end;
 
-// Oof. Heap allocating for these is kind of bad. Value types?
-
-define method \+ (d1 :: <duration>, d2 :: <duration>) => (d :: <duration>)
-  make(<duration>, nanoseconds: d1.duration-nanoseconds + d2.duration-nanoseconds)
+define method \< (t1 :: <time>, t2 :: <time>) => (_ :: <boolean>)
+  let days1 = t1.%days;
+  let days2 = t2.%days;
+  days1 < days2 | (days1 == days2 & (t1.%nanoseconds < t2.%nanoseconds))
 end;
 
-define method \- (d1 :: <duration>, d2 :: <duration>) => (d :: <duration>)
-  make(<duration>, nanoseconds: d1.duration-nanoseconds - d2.duration-nanoseconds)
-end;
-
-define method \- (t :: <time>, d :: <duration>) => (d :: <time>)
-  let (days, nanos) = truncate/(d.duration-nanoseconds, $nanos/day);
-  let days = t.%days - days;
-  let nanos = t.%nanoseconds - nanos;
-  if (nanos < 0)
-    days := days - 1;
-  end;
-  make(<time>, days: days, nanoseconds: nanos)
+define method \< (d1 :: <duration>, d2 :: <duration>) => (_ :: <boolean>)
+  // TODO
 end method;
+
+
+// +
+
+// Ouch. Heap allocating for these is kind of bad. Value types? Mutation?
 
 define method \+ (t :: <time>, d :: <duration>) => (t :: <time>)
   let total-nanos = d.duration-nanoseconds;
@@ -349,19 +183,62 @@ define /* inline */ method \+ (d :: <duration>, t :: <time>) => (t :: <time>)
   t + d
 end;
 
+define method \+ (d1 :: <duration>, d2 :: <duration>) => (d :: <duration>)
+  make(<duration>, nanoseconds: d1.duration-nanoseconds + d2.duration-nanoseconds)
+end;
+
+// -
+
+// Returns the difference between time `t1` and time `t2` as a <duration>,
+// which may be negative.
+define method \- (t1 :: <time>, t2 :: <time>) => (d :: <duration>)
+/*
+  let sec1 = t1.%seconds;
+  let sec2 = t2.%seconds;
+  let nano1 = t1.%nanoseconds;
+  let nano2 = t2.%nanoseconds;
+  let seconds = sec1 - sec2;
+  let nanoseconds = nano1 - nano2;
+  if (nanoseconds < 0)
+    seconds := seconds - 1;
+    nanoseconds := 1_000_000_000 + nanoseconds;
+  end;
+  make(<duration>, nanoseconds: nanoseconds)
+    */
+  // TODO
+  $nanosecond
+end method;
+
+define method \- (d1 :: <duration>, d2 :: <duration>) => (d :: <duration>)
+  make(<duration>, nanoseconds: d1.duration-nanoseconds - d2.duration-nanoseconds)
+end;
+
+define method \- (t :: <time>, d :: <duration>) => (d :: <time>)
+  let (days, nanos) = truncate/(d.duration-nanoseconds, $nanos/day);
+  let days = t.%days - days;
+  let nanos = t.%nanoseconds - nanos;
+  if (nanos < 0)
+    days := days - 1;
+  end;
+  make(<time>, days: days, nanoseconds: nanos)
+end method;
+
+// *
+
 define method \* (d :: <duration>, r :: <real>) => (d :: <duration>)
-  make(<duration>, nanoseconds: d.duration-nanoseconds * r)
+  make(<duration>, nanoseconds: as(<integer>, d.duration-nanoseconds * r))
 end;
 
 define /* inline */ method \* (r :: <real>, d :: <duration>) => (d :: <duration>)
   d * r
 end;
 
-define method parse-duration (s :: <string>) => (d :: <duration>)
-  // TODO
-  make(<duration>)
-end;
+define /* inline */ method \/ (d :: <duration>, r :: <real>) => (d :: <duration>)
+  make(<duration>, nanoseconds: floor/(d.duration-nanoseconds, r))
+end method;
 
+
+// --- Building/decomposing times ---
 
 // Returns number of days since civil 1970-01-01.  Negative values indicate
 // days prior to 1970-01-01. This directly follows the definition of
@@ -439,16 +316,16 @@ define method time-components
 end method;
 
 define method time-year (t :: <time>) => (year :: <integer>)
-  time-components(t) // Only first value returned.
+  civil-from-days(t.%days)      // return first value
 end;
 
 define method time-month (t :: <time>) => (month :: <month>)
-  let (_, month) = time-components(t);
-  month
+  let (_, month) = civil-from-days(t.%days);
+  as(<month>, month)
 end;
 
 define method time-day-of-month (t :: <time>) => (day-of-month :: <integer>)
-  let (_, _, day-of-month) = time-components(t);
+  let (_, _, day-of-month) = civil-from-days(t.%days);
   day-of-month
 end;
 
@@ -458,28 +335,68 @@ define method time-day-of-week (t :: <time>) => (_ :: <day>)
 end;
 
 define method time-hour (t :: <time>) => (hour :: <integer>)
+  // TODO: no need to compute all time components.
   let (_, _, _, hour) = time-components(t);
   hour
 end;
 
 define method time-minute (t :: <time>) => (minute :: <integer>)
+  // TODO: no need to compute all time components.
   let (_, _, _, _, minute) = time-components(t);
   minute
 end;
 
 define method time-second (t :: <time>) => (second :: <integer>)
+  // TODO: no need to compute all time components.
   let (_, _, _, _, _, second) = time-components(t);
   second
 end;
 
 define method time-nanosecond (t :: <time>) => (nanosecond :: <integer>)
-  // This one doesn't need to call time-components since we maintain
-  // nanoseconds explicitly.
-  t.%nanoseconds
+  // TODO: no need to compute all time components.
+  let (_, _, _, _, _, _, nanosecond) = time-components(t);
+  nanosecond
+end;
+
+define method time-zone (t :: <time>) => (zone :: <zone>)
+  t.%zone
 end;
 
 
-//// Days of the week
+// --- Current time ---
+
+// Returns the current time in the local time zone, or in `zone` if supplied.
+// For example, time-now(zone: $utc) returns the current UTC time.
+//
+define method time-now (#key zone :: <zone> = local-time-zone()) => (t :: <time>)
+  let spec = make(<timespec*>);
+  let result = clock-gettime(get-clock-realtime(), spec);
+  make(<time>,
+       days: floor/(spec.timespec-seconds, 24 * 60 * 60),
+       nanoseconds: spec.timespec-nanoseconds * 24 * 60 * 60,
+       zone: zone)
+end method;
+
+
+// --- Days of the week ---
+
+// TODO: do we need day-number => 1..7?  day-letter? (probably not, no standard)
+define sealed generic day-long-name (d :: <day>) => (name :: <string>);
+define sealed generic day-short-name (d :: <day>) => (name :: <string>);
+define sealed generic parse-day (name :: <string>) => (day :: <day>);
+
+define sealed class <day> (<object>)
+  constant slot day-long-name :: <string>, required-init-keyword: long-name:;
+  constant slot day-short-name :: <string>, required-init-keyword: short-name:;
+end class;
+
+define constant $monday    :: <day> = make(<day>, short-name: "Mon", long-name: "Monday");
+define constant $tuesday   :: <day> = make(<day>, short-name: "Tue", long-name: "Tuesday");
+define constant $wednesday :: <day> = make(<day>, short-name: "Wed", long-name: "Wednesday");
+define constant $thursday  :: <day> = make(<day>, short-name: "Thu", long-name: "Thursday");
+define constant $friday    :: <day> = make(<day>, short-name: "Fri", long-name: "Friday");
+define constant $saturday  :: <day> = make(<day>, short-name: "Sat", long-name: "Saturday");
+define constant $sunday    :: <day> = make(<day>, short-name: "Sun", long-name: "Sunday");
 
 define method parse-day (name :: <string>) => (d :: <day>)
   element($short-name-to-day, name, default: #f)
@@ -508,8 +425,54 @@ define table $short-name-to-day :: <istring-table> = {
 };
 
 
-// ===== Months
+// --- Months ---
 
+// month-number returns the 1-based month number for the given month.
+// January = 1, February = 2, etc.
+define sealed generic month-number (m :: <month>) => (n :: <integer>);
+
+// month-long-name returns the long name of the month. "January", "February", etc.
+define sealed generic month-long-name (m :: <month>) => (n :: <string>);
+
+// month-short-name returns the 3-letter month name with an initial
+// capital letter. "Jan", "Feb", etc.
+define sealed generic month-short-name (m :: <month>) => (n :: <string>);
+
+// month-days returns the standard (non-leap year) dayays in the month.
+// January = 31, February = 28, etc.
+define sealed generic month-days (m :: <month>) => (n :: <integer>);
+
+define sealed class <month> (<object>)
+  constant slot month-number :: <integer>,    required-init-keyword: number:;
+  constant slot month-long-name :: <string>,  required-init-keyword: long-name:;
+  constant slot month-short-name :: <string>, required-init-keyword: short-name:;
+  constant slot month-days :: <integer>,      required-init-keyword: days:;
+end class;
+
+define constant $january :: <month>
+  = make(<month>, number:  1, short-name: "Jan", days: 31, long-name: "January");
+define constant $february :: <month>
+  = make(<month>, number:  2, short-name: "Feb", days: 28, long-name: "February");
+define constant $march :: <month>
+  = make(<month>, number:  3, short-name: "Mar", days: 31, long-name: "March");
+define constant $april :: <month>
+  = make(<month>, number:  4, short-name: "Apr", days: 30, long-name: "April");
+define constant $may :: <month>
+  = make(<month>, number:  5, short-name: "May", days: 31, long-name: "May");
+define constant $june :: <month>
+  = make(<month>, number:  6, short-name: "Jun", days: 30, long-name: "June");
+define constant $july :: <month>
+  = make(<month>, number:  7, short-name: "Jul", days: 31, long-name: "July");
+define constant $august :: <month>
+  = make(<month>, number:  8, short-name: "Aug", days: 31, long-name: "August");
+define constant $september :: <month>
+  = make(<month>, number:  9, short-name: "Sep", days: 30, long-name: "September");
+define constant $october :: <month>
+  = make(<month>, number: 10, short-name: "Oct", days: 31, long-name: "October");
+define constant $november :: <month>
+  = make(<month>, number: 11, short-name: "Nov", days: 30, long-name: "November");
+define constant $december :: <month>
+  = make(<month>, number: 12, short-name: "Dec", days: 31, long-name: "December");
 define constant $months
   = vector($january, $february, $march, $april, $may, $june, $july,
            $august, $september, $october, $november, $december);
@@ -559,58 +522,3 @@ define table $short-name-to-month :: <string-table> = {
   $november.month-short-name => $november,
   $december.month-short-name => $december
 };
-
-// Returns the current time in the local time zone, or in `zone` if supplied.
-// For example, time-now(zone: $utc) returns the current UTC time.
-//
-define method time-now (#key zone :: <zone> = local-time-zone()) => (t :: <time>)
-  let spec = make(<timespec*>);
-  let result = clock-gettime(get-clock-realtime(), spec);
-  make(<time>,
-       days: floor/(spec.timespec-seconds, 24 * 60 * 60),
-       nanoseconds: spec.timespec-nanoseconds * 24 * 60 * 60,
-       zone: zone)
-end method;
-
-define method time-zone (t :: <time>) => (zone :: <zone>)
-  t.%zone
-end;
-
-
-//// Comparisons
-
-// Since zone is used purely for display purposes, it is ignored during
-// arithmetic and comparison operations.
-
-// Returns true if `t1` and `t2` represent the same time instant.
-define method \= (t1 :: <time>, t2 :: <time>) => (b :: <boolean>)
-  t1.%days = t2.%days
-    & t1.%nanoseconds = t2.%nanoseconds
-end;
-
-// Returns true if `t1` is before `t2`.
-define method \< (t1 :: <time>, t2 :: <time>) => (b :: <boolean>)
-  let days1 = t1.%days;
-  let days2 = t2.%days;
-  days1 < days2 | (days1 == days2 & (t1.%nanoseconds < t2.%nanoseconds))
-end;
-
-// Returns the difference between time `t1` and time `t2` as a <duration>,
-// which may be negative.
-define method \- (t1 :: <time>, t2 :: <time>) => (d :: <duration>)
-/*
-  let sec1 = t1.%seconds;
-  let sec2 = t2.%seconds;
-  let nano1 = t1.%nanoseconds;
-  let nano2 = t2.%nanoseconds;
-  let seconds = sec1 - sec2;
-  let nanoseconds = nano1 - nano2;
-  if (nanoseconds < 0)
-    seconds := seconds - 1;
-    nanoseconds := 1_000_000_000 + nanoseconds;
-  end;
-  make(<duration>, nanoseconds: nanoseconds)
-    */
-  // TODO
-  $nanosecond
-end method;

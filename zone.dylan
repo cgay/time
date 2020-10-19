@@ -1,6 +1,43 @@
 Module: %time
 Synopsis: Time zones implementation
 
+// Returns the full name of the zone. Ex: "America/New York"
+define sealed generic zone-name (zone :: <zone>) => (name :: <string>);
+
+// Returns the local time zone, according to the operating system.
+define generic local-time-zone () => (zone :: <zone>);
+
+// The UTC offset in minutes at time `time` in zone `zone`. For `<aware-zone>`
+// a time should be passed so the offset at that time may be determined. If
+// not provided, the current time is used instead.
+//
+// It is possible, at least historically, to have an offset with fractional
+// minutes but we don't support it.
+define sealed generic zone-offset
+    (zone :: <zone>, #key time) => (minutes :: <integer>);
+
+// Returns a string describing the offset in minutes from UTC for zone `zone`
+// at time `time`.  For example, "+00:00" or "Z" for UTC itself or "-04:00" for
+// a time in EDT.
+define sealed generic zone-offset-string
+    (zone :: <zone>, #key time) => (offset :: <string>);
+
+// Returns the short name of `zone`. The abbreviation is symbolic if possible
+// (ex: "EDT", "UTC") and otherwise is the result of calling
+// zone-offset-string. For `<aware-zone>` a time should be provided since the
+// abbreviation may differ over time. If not provided, the current time is
+// used.
+define generic zone-abbreviation
+    (zone :: <zone>, #key time) => (abbrev :: <string>);
+
+// Returns true if the zone observes Daylight Savings Time at time `time`. For
+// `<naive-zone>` this is always false. For `<aware-zone>` a time should be
+// provided since the value may differ over time. If not provided, the current
+// time is used.
+define generic zone-daylight-savings?
+    (zone :: <zone>, #key time) => (dst? :: <boolean>);
+
+
 // A <subzone> represents the values for a timezone over a period of time
 // starting at subzone-start-time and ending when a newer <subzone> shadows it.
 define class <subzone> (<object>)
@@ -57,6 +94,12 @@ define method initialize (zone :: <aware-zone>, #key subzones :: <vector>, #all-
     prev-time := start;
   end;
 end method;
+
+define constant $utc :: <naive-zone>
+  = make(<naive-zone>,
+         name: "Coordinated Universal Time",
+         abbreviation: "UTC",
+         offset: 0);
 
 define method local-time-zone () => (zone :: <zone>)
   // TODO

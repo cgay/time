@@ -77,12 +77,24 @@ The library API can be logically separated into several parts:
   * _duration_ `/` _real number_
 
 
+## Code Organization
+
+* For each file named `foo.dylan` there is a corresponding file named
+  `foo-test.dylan` containing unit tests. Unit tests are mainly written for the
+  public interfaces, but a few internals are exported from the `%time` module
+  to enable verification of results.
+
+* For each exported class I try to keep the methods for initialization (`make`,
+  `initialize`) immediately after the class definition. Then the generic
+  functions that apply only to that class. Then implementation methods.
+
+
 ## TODO
 
-*  Platform-specific libraries.
+* Platform-specific libraries.
 
-*  Like Rust's time::Instant, uses monotonic clock:
-   `define class <instant> (<abstract-time>)` Is this needed?
+* Like Rust's time::Instant, uses monotonic clock: `define class <instant>
+  (<abstract-time>)` Is this needed?
 
 *  `<date>`, `<naive-date>`, `<time-of-day>`?
 

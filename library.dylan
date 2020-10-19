@@ -75,6 +75,8 @@ define module time
     format-time,
     format-duration,
     <time-format>,
+    // as(<month>, integer)
+    // as(<month>, string)
 
     // Comparisons
     // duration < duration, duration = duration, time < time, time = time
