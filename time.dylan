@@ -89,20 +89,24 @@ define sealed generic duration-nanoseconds
 define sealed generic print-duration
     (duration :: <duration>, #key stream, format, precision) => ();
 
+// May signal <time-error>
 define sealed generic parse-duration
-    (string :: <string>) => (duration :: <duration>);
+    (string :: <string>, #key start, end: _end) => (duration :: <duration>, end-pos :: <integer>);
 
 define sealed generic format-duration
     (stream :: <stream>, format :: <object>, duration :: <duration>,
      #key precision)
  => ();
 
-define constant $nanosecond :: <duration>  = make(<duration>, nanoseconds:          1);
-define constant $microsecond :: <duration> = make(<duration>, nanoseconds:      1_000);
-define constant $millisecond :: <duration> = make(<duration>, nanoseconds:  1_000_000);
-define constant $second :: <duration> = make(<duration>, nanoseconds:   1_000_000_000);
-define constant $minute :: <duration> = make(<duration>, nanoseconds:  60_000_000_000);
-define constant $hour :: <duration> = make(<duration>, nanoseconds: 3_600_000_000_000);
+define constant $nanosecond :: <duration>  = make(<duration>, nanoseconds: 1);
+define constant $microsecond :: <duration> = make(<duration>, nanoseconds: 1_000);
+define constant $millisecond :: <duration> = make(<duration>, nanoseconds: 1_000_000);
+define constant $second :: <duration> = make(<duration>, nanoseconds: 1_000_000_000);
+define constant $minute :: <duration> = make(<duration>, nanoseconds: 1_000_000_000 * 60);
+define constant $hour :: <duration>   = make(<duration>, nanoseconds: 1_000_000_000 * 3600);
+define constant $day :: <duration>    = make(<duration>, nanoseconds: 1_000_000_000 * 3600 * 24);
+define constant $week :: <duration>   = make(<duration>, nanoseconds: 1_000_000_000 * 3600 * 24 * 7);
+
 
 define method print-object
     (d :: <duration>, stream :: <stream>) => ()

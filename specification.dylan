@@ -64,7 +64,7 @@ define interface-specification-suite time-specification-suite ()
 
   // Conversions
   sealed generic function parse-time (<string>, #"key", #"format", #"zone") => (<time>);
-  sealed generic function parse-duration (<string>) => (<duration>);
+  sealed generic function parse-duration (<string>) => (<duration>, <integer>);
   sealed generic function parse-day (<string>) => (<day>);
 
   function print-time (<time>, #"key", #"stream", #"format") => ();

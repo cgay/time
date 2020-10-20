@@ -89,5 +89,3 @@ define test test-print-object ()
   assert-equal("1970-01-01T00:00:00+0000", format-to-string("%s", $epoch));
   assert-equal("{<time> ", copy-sequence(format-to-string("%=", $epoch), end: 8));
 end test;
-
-run-test-application();

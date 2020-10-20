@@ -15,8 +15,6 @@ end class;
 define method make
     (class == <time-format>, #rest args, #key string :: <string>, parsed)
  => (_ :: <time-format>)
-  format-out("make(<time-format>, %=\n", args);
-  force-out();
   next-method(class,
               string: string,
               parsed: parsed | parse-time-format(string))
@@ -232,6 +230,19 @@ define constant $rfc3339 :: <time-format>
   = make(<time-format>, string: "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}{offset}");
 
 
+
+
+// --- Time parsing ---
+
+define method parse-time
+    (input :: <string>, #key format :: <time-format> = $rfc3339, zone :: <zone> = $utc)
+ => (time :: <time>)
+  // TODO
+  time-now()
+end method;
+
+
+
 // --- Duration formatting ---
 
 define abstract class <duration-format> (<object>) end;
@@ -268,19 +279,134 @@ define method format-duration
 end;
 
 
+// --- Duration parsing ---
 
+// Units have several possible names. See $duration-parsers, below.
+//
+// * Whitespace is optional.
+// * Only integers are allowed.
+// * No requirements on order.
+// * Case is ignored on input but always output in lowercase.
+//
+// A ludicrous example: 99w88d77h66m55s44ms33u22n
+// A normal example: 90 minutes
 
-// --- Time parsing ---
+define constant $duration-units
+  // These are sorted so that any unit name that is a prefix of another occurs
+  // AFTER that other. The effect is a greedy parser. Also going with a rough
+  // guesstimate as to which units might be used more often and putting them
+  // first. Probably more efficient to use a greedy regex and then a table
+  // lookup. Or use a <trie> from uncommon-dylan.
 
-define method parse-time
-    (input :: <string>, #key format :: <time-format> = $rfc3339, zone :: <zone> = $utc)
- => (time :: <time>)
-  // TODO
-  time-now()
+  // The singular units here might seem unlikely, but they work with 1: 1 nano,
+  // 1 milli, 1 microsecond, ...
+  = vector(pair("hours", $hour),
+           pair("hour", $hour),
+           pair("hrs", $hour),
+           pair("hr", $hour),
+           pair("h", $hour),
+
+           pair("seconds", $second),
+           pair("second", $second),
+           pair("sec", $second),
+           pair("s", $second),
+
+           pair("milliseconds", $millisecond),
+           pair("millisecond", $millisecond),
+           pair("millis", $millisecond),
+           pair("milli", $millisecond),
+           pair("msec", $millisecond),
+           pair("ms", $millisecond),
+
+           pair("microseconds", $microsecond),
+           pair("microsecond", $microsecond),
+           pair("micros", $microsecond),
+           pair("micro", $microsecond),
+           pair("usec", $microsecond),
+           pair("u", $microsecond),
+
+           pair("minutes", $minute),
+           pair("minute", $minute),
+           pair("min", $minute), 
+           pair("m", $minute),  // also prefix of milli and micro
+
+           pair("nanoseconds", $nanosecond),
+           pair("nanosecond", $nanosecond),
+           pair("nanos", $nanosecond),
+           pair("nano", $nanosecond),
+           pair("ns", $nanosecond),
+           pair("n", $nanosecond),
+
+           pair("days", $day),
+           pair("day", $day),
+           pair("d", $day),
+
+           pair("weeks", $week),
+           pair("week", $week),
+           pair("w", $week));           
+
+define method parse-duration
+    (s :: <string>, #key start :: <integer> = 0, end: _end :: <integer> = s.size)
+ => (d :: <duration>, end-position :: <integer>)
+  // TODO: pretty inefficient here, in that we go brute force through all
+  // possible unit names, longest first. Use a greedy regex or <string-trie>
+  // (from uncommon-dylan) instead. Don't necessarily want to create a
+  // dependency on either of those libraries though.
+  let nanos :: <integer> = 0;
+  let index :: <integer> = start;
+  local
+    method skip-whitespace (bpos :: <integer>) => (epos :: <integer>)
+      iterate loop (i = bpos)
+        if (i < _end & whitespace?(s[i]))
+          loop(i + 1)
+        else
+          i
+        end;
+      end;
+    end,
+    method parse-one (start :: <integer>) => (found? :: <boolean>)
+      let bpos = skip-whitespace(start);
+      if (bpos < _end)
+        let (num, i) = block ()
+                         string-to-integer(s, start: bpos, end: _end)
+                       exception (<error>)
+                         #f
+                       end;
+        if (num)
+          block (done-with-units)
+            for (pair in $duration-units)
+              let name :: <string> = pair.head;
+              let unit :: <duration> = pair.tail;
+              i := skip-whitespace(i);
+              if (i >= _end)
+                done-with-units(#f);
+              end;
+              if (string-equal-ic?(s, name,
+                                   start1: i,
+                                   end1: min(_end, i + name.size))
+                    // Verify that the following char is either numeric or
+                    // whitespace, to prevent e.g. "m" matching "mom".
+                    & begin
+                        let j = i + name.size;
+                        j = _end
+                          | decimal-digit?(s[j])
+                          | whitespace?(s[j])
+                      end)
+                nanos := nanos + num * unit.duration-nanoseconds;
+                index := i + name.size;
+                done-with-units(#t);
+              end;
+            end for;
+            #f
+          end block
+        end
+      end
+    end method;
+  while (parse-one(index)) end;
+  if (index > start)
+    // Found at least one spec.
+    values(make(<duration>, nanoseconds: nanos), index)
+  else
+    time-error("no duration found in input at index %d: %=", start, s);
+  end
 end method;
-
-define method parse-duration (s :: <string>) => (d :: <duration>)
-  // TODO
-  make(<duration>)
-end;
-

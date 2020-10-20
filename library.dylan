@@ -7,6 +7,7 @@ define library time
   use c-ffi;
   use io,
     import: { format, format-out, print, pprint, standard-io, streams };
+  use strings;
   export
     time,
     %time;                // for unit tests only! depend on this at your peril!
@@ -39,12 +40,7 @@ define module time
     // Durations
     <duration>,
     duration-nanoseconds,
-    $nanosecond,
-    $microsecond,
-    $millisecond,
-    $second,
-    $minute,
-    $hour,
+    $nanosecond, $microsecond, $millisecond, $second, $minute, $hour, $day, $week,
     print-duration,
     format-duration,
     <duration-format>,
@@ -113,6 +109,8 @@ define module %time
     import: { *standard-output* };
   use streams,
     import: { <stream>, write };
+  use strings,
+    import: { decimal-digit?, string-equal-ic?, whitespace? };
   use table-extensions,
     rename: { <case-insensitive-string-table> => <istring-table> };
 
