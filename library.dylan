@@ -41,11 +41,7 @@ define module time
     <duration>,
     duration-nanoseconds,
     $nanosecond, $microsecond, $millisecond, $second, $minute, $hour, $day, $week,
-    print-duration,
     format-duration,
-    <duration-format>,
-    $duration-short-format,
-    $duration-long-format,
 
     // Days of the week
     <day>,
@@ -104,11 +100,11 @@ define module %time
     import: { format, format-to-string };
   use format-out;
   use print,
-    import: { print-object, printing-object, *print-escape?* };
+    import: { print, print-object, printing-object, *print-escape?* };
   use standard-io,
     import: { *standard-output* };
   use streams,
-    import: { <stream>, write };
+    import: { <stream>, write, write-element };
   use strings,
     import: { decimal-digit?, string-equal-ic?, whitespace? };
   use table-extensions,

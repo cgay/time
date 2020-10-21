@@ -67,11 +67,9 @@ define interface-specification-suite time-specification-suite ()
   sealed generic function parse-duration (<string>) => (<duration>, <integer>);
   sealed generic function parse-day (<string>) => (<day>);
 
-  function print-time (<time>, #"key", #"stream", #"format") => ();
   open generic function format-time (<stream>, <object>, <time>) => ();
 
-  function print-duration (<duration>, #"key", #"stream", #"format") => ();
-  open generic function format-duration (<stream>, <object>, <duration>, #"key", #"precision") => ();
+  open generic function format-duration (<stream>, <duration>, #"key", #"long?") => ();
 
   // Comparisons
   // TODO(https://github.com/dylan-lang/testworks/issues/97):

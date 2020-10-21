@@ -47,9 +47,6 @@ define sealed generic make-time
      nanosecond :: <integer>, zone :: <zone>)
  => (t :: <time>);
 
-define sealed generic print-time
-    (time :: <time>, #key stream, format) => ();
-
 define sealed generic format-time
     (stream :: <stream>, format :: <object>, time :: <time>) => ();
 
@@ -77,7 +74,7 @@ end method;
 
 // <duration> represents the difference between two times, in nanoseconds. They
 // may be positive or negative. On 64 bit systems, with 2 tag bits, and 1 sign
-// bit, this gives a maximum duration of 73.1 years.
+// bit, this gives a maximum duration of just over 73 years.
 define class <duration> (<object>)
   constant slot duration-nanoseconds :: <integer> = 0,
     init-keyword: nanoseconds:;
@@ -86,17 +83,24 @@ end;
 define sealed generic duration-nanoseconds
     (d :: <duration>) => (nanoseconds :: <integer>);
 
-define sealed generic print-duration
-    (duration :: <duration>, #key stream, format, precision) => ();
-
-// May signal <time-error>
+// May signal <time-error>.
 define sealed generic parse-duration
     (string :: <string>, #key start, end: _end) => (duration :: <duration>, end-pos :: <integer>);
 
+
 define sealed generic format-duration
-    (stream :: <stream>, format :: <object>, duration :: <duration>,
-     #key precision)
- => ();
+    (stream :: <stream>, duration :: <duration>, #key long?) => ();
+
+define method print-object
+    (d :: <duration>, stream :: <stream>) => ()
+  if (*print-escape?*)
+    printing-object (d, stream)
+      format-duration(stream, d);
+    end;
+  else
+    format-duration(stream, d);
+  end;
+end method;
 
 define constant $nanosecond :: <duration>  = make(<duration>, nanoseconds: 1);
 define constant $microsecond :: <duration> = make(<duration>, nanoseconds: 1_000);
@@ -106,23 +110,6 @@ define constant $minute :: <duration> = make(<duration>, nanoseconds: 1_000_000_
 define constant $hour :: <duration>   = make(<duration>, nanoseconds: 1_000_000_000 * 3600);
 define constant $day :: <duration>    = make(<duration>, nanoseconds: 1_000_000_000 * 3600 * 24);
 define constant $week :: <duration>   = make(<duration>, nanoseconds: 1_000_000_000 * 3600 * 24 * 7);
-
-
-define method print-object
-    (d :: <duration>, stream :: <stream>) => ()
-  if (*print-escape?*)
-    printing-object (d, stream)
-      format(stream, "%dns", d.duration-nanoseconds);
-      // TODO: format-duration(stream, ..., d)
-    end;
-  else
-    format-duration(stream, $duration-short-format, d);
-  end;
-end method;
-
-
-// Is it useful to have idealized $day, $week, etc constants? C++ chrono seems
-// to have them.
 
 
 // --- Arithmetic and comparisons ---

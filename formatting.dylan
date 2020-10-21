@@ -245,39 +245,87 @@ end method;
 
 // --- Duration formatting ---
 
-define abstract class <duration-format> (<object>) end;
+define constant $format-duration-short-units
+  = vector(pair("w", $week),
+           pair("d", $day),
+           pair("h", $hour),
+           pair("m", $minute),
+           pair("s", $second),
+           pair("ms", $millisecond),
+           pair("u", $microsecond),
+           pair("ns", $nanosecond));
 
-define class <duration-short-format> (<duration-format>) end;
-define class <duration-long-format> (<duration-format>) end;
-
-define constant $duration-short-format = make(<duration-short-format>);
-define constant $duration-long-format = make(<duration-long-format>);
-
-define method print-duration
-    (duration :: <duration>,
-     #key stream :: <stream> = *standard-output*,
-          format :: <duration-format> = $duration-short-format,
-          precision :: <duration> = $nanosecond)
- => ()
-  format-duration(stream, format, duration, precision: precision);
-end method;
-
-define method format-duration
-    (stream :: <stream>, format :: <string>, duration :: <duration>,
-     #key precision :: <duration> = $nanosecond)
- => ()
-  // TODO: parse `format` and cache it
-  write(stream, "456n");
-end method;
+define constant $format-duration-long-units
+  // Must be ordered largest to smallest.  It happens that these are all
+  // regular plurals, and we take advantage of that by adding 's' to the output
+  // as necessary. Units smaller than a minute are handled specially.
+  = vector(pair("week", $week),
+           pair("day", $day),
+           pair("hour", $hour),
+           pair("minute", $minute));
 
 define method format-duration
-    (stream :: <stream>, format :: <duration-short-format>, duration :: <duration>,
-     #key precision :: <duration> = $nanosecond)
+    (stream :: <stream>, duration :: <duration>, #key long? :: <boolean>)
  => ()
-  // TODO: I like the way Go outputs durations heuristically.
-  write(stream, "123ns");
-end;
-
+  let nanos :: <integer> = duration.duration-nanoseconds;
+  block (return)
+    if (nanos = 0)
+      // Choice of seconds as the unit is kind of arbitrary.
+      write(stream, if (long?) "0 seconds" else "0s" end);
+      return();
+    end;
+    // TODO: still haven't decided whether durations can be negative. I think
+    // not. If they can be negative I should probably use truncate/ not floor/.
+    if (nanos < 0)
+      nanos := abs(nanos);
+      write-element(stream, '-');
+    end;
+    let did-any-output? = #f;
+    local method output (n :: <integer>, unit :: <string>)
+            if (long? & did-any-output?) write-element(stream, ' '); end;
+            print(n, stream);
+            if (long?) write-element(stream, ' ') end;
+            write(stream, unit);
+            if (long? & n ~= 1) write-element(stream, 's'); end;
+            did-any-output? := #t;
+          end method,
+          method do-units (items :: <sequence>)
+            for (item in items)
+              let unit :: <string> = item.head;
+              let d :: <duration> = item.tail;
+              let unit-nanos = d.duration-nanoseconds;
+              let n = floor/(nanos, unit-nanos);
+              if (n > 0)
+                output(n, unit);
+                nanos := nanos - (n * unit-nanos);
+              end;
+            end for;
+          end method;
+    if (~long?)
+      do-units($format-duration-short-units);
+      return();
+    end;
+    do-units($format-duration-long-units);
+    // Now just output a decimal number of seconds.
+    if (nanos > 0)
+      let (seconds, nanos) = floor/(nanos, 1_000_000_000);
+      if (did-any-output?) write-element(stream, ' '); end;
+      print(seconds, stream);
+      iterate loop(n = nanos, i = 9)
+        if (n > 0)
+          let (q, r) = floor/(n, 10);
+          if (r = 0)
+            loop(q, i - 1)
+          else
+            write-element(stream, '.');
+            write(stream, integer-to-string(n, size: i));
+          end;
+        end;
+      end iterate;
+      write(stream, " seconds");
+    end;
+  end block;
+end method;
 
 // --- Duration parsing ---
 
@@ -343,7 +391,7 @@ define constant $duration-units
 
            pair("weeks", $week),
            pair("week", $week),
-           pair("w", $week));           
+           pair("w", $week));
 
 define method parse-duration
     (s :: <string>, #key start :: <integer> = 0, end: _end :: <integer> = s.size)

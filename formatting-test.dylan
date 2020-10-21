@@ -2,21 +2,23 @@ Module: time-test-suite
 
 define constant $nanos/sec = 1_000_000_000;
 
+define constant $one-of-each-unit
+  = ($week.duration-nanoseconds
+       + $day.duration-nanoseconds
+       + $hour.duration-nanoseconds
+       + $minute.duration-nanoseconds
+       + $second.duration-nanoseconds
+       + $millisecond.duration-nanoseconds
+       + $microsecond.duration-nanoseconds
+       + $nanosecond.duration-nanoseconds);
+
 define test test-parse-duration ()
-  let one-of-each = ($week.duration-nanoseconds
-                       + $day.duration-nanoseconds
-                       + $hour.duration-nanoseconds
-                       + $minute.duration-nanoseconds
-                       + $second.duration-nanoseconds
-                       + $millisecond.duration-nanoseconds
-                       + $microsecond.duration-nanoseconds
-                       + $nanosecond.duration-nanoseconds);
   let cases
     = list(list("9ns", 9),
            list("3m8s", (3 * 60 + 8) * $nanos/sec),
            list("3m 8s", (3 * 60 + 8) * $nanos/sec),
-           list("1w1d1h1m1s1ms1u1n", one-of-each),
-           list("1w  1d  1h\t1m\n1s 1ms 1u1n", one-of-each),
+           list("1w1d1h1m1s1ms1u1ns", $one-of-each-unit),
+           list("1w  1d  1h\t1m1s 1ms \t\t  1u1n", $one-of-each-unit),
            list("0h", 0),
            // Exercise each unit at least once.
            list("9n", 9),
@@ -62,7 +64,7 @@ define test test-parse-duration ()
     let (input, want, #rest parse-duration-args) = apply(values, item);
     let (got, pos) = apply(parse-duration, input, parse-duration-args);
     assert-equal(want, got.duration-nanoseconds,
-                 format-to-string("for input %=, got %= want %=",
+                 format-to-string("for input %=, got %=, want %=",
                                   input, got, want));
   end;
 
@@ -70,5 +72,29 @@ define test test-parse-duration ()
   assert-signals(<time-error>, parse-duration(""));
 end test;
 
+define test test-format-duration ()
+  let cases
+    = list(list("9ns", "0.000000009 seconds", 9),
+           list("0s", "0 seconds", 0),
+           list("-2ns", "-0.000000002 seconds", -2),
+           list("1ns", "0.000000001 seconds", 1),
+           list("1w1d1h1m1s1ms1u1ns", "1 week 1 day 1 hour 1 minute 1.001001001 seconds",
+                $one-of-each-unit));
+  for (item in cases)
+    let (want-short, want-long, nanos) = apply(values, item);
+    let got-short = with-output-to-string (s)
+                      format-duration(s, make(<duration>, nanoseconds: nanos))
+                    end;
+    let got-long = with-output-to-string (s)
+                     format-duration(s, make(<duration>, nanoseconds: nanos), long?: #t)
+                   end;
+    assert-equal(want-short, got-short,
+                 format-to-string("for input %d, got %=, want %=",
+                                  nanos, got-short, want-short));
+    assert-equal(want-long, got-long,
+                 format-to-string("for input %d, got %=, want %=",
+                                  nanos, got-long, want-long));
+  end;
+end test;
 
 run-test-application();
