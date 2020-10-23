@@ -249,20 +249,37 @@ define /* inline */ function days-from-civil
   era * 146097 + doe - 719468
 end;
 
+// Adjust `days` and `nanos` to UTC time by subtracting `offset-nanos`, which
+// could cross a day boundary. Pass the negated zone offset to adjust UTC to
+// local.  Returns the adjusted days and nanoseconds for constructing a `<time>`.
+define inline function adjust-for-zone-offset
+    (days :: <integer>, nanoseconds :: <integer>, offset-nanos :: <integer>)
+ => (d :: <integer>, n :: <integer>)
+  let nanos = nanoseconds - offset-nanos;
+  if (nanos >= $nanos/day)
+    days := days + 1;
+    nanos := remainder(nanos, $nanos/day);
+  elseif (nanos < 0)
+    days := days - 1;
+    nanos := nanos + $nanos/day;
+  end;
+  values(days, nanos)
+end function;
+
 define method make-time
     (y :: <integer>, mon :: <month>, d :: <integer>, h :: <integer>,
      min :: <integer>, sec :: <integer>, nano :: <integer>, zone :: <zone>)
  => (_ :: <time>)
-  // TODO: currently the y, mon, d, etc parameters specify a time in UTC and
-  // then the zone is tacked on for display. I think intuitively "I'm making a
-  // time in zone `zone`" so the days/nanos of the time should be adjusted
-  // based on the zone at this point.  What does Python do?
-  make(<time>,
-       days: days-from-civil(y, month-number(mon), d),
-       nanoseconds: (h * 60 * 60_000_000_000
+  let days = days-from-civil(y, month-number(mon), d);
+  let nanoseconds = (h * 60 * 60_000_000_000
                        + min * 60_000_000_000
                        + sec * 1_000_000_000
-                       + nano),
+                       + nano);
+  let (days, nanos)
+    = adjust-for-zone-offset(days, nanoseconds, zone-offset(zone) * $nanos/minute);
+  make(<time>,
+       days: days,
+       nanoseconds: nanos,
        zone: zone)
 end method;
 
@@ -306,19 +323,10 @@ define method time-components
   // separate numbers (30+6+6+5=47 bits required) rather than doing all this
   // division.
 
-  // Adjust days if zone offset puts time in a different day.  One must
-  // normally subtract the offset from the local time to get UTC but here we
-  // have UTC days+nanos in t and want local, so we add the offset.
-  let offset-nanos = zone-offset(zone | t.%zone) * $nanos/minute;
-  let nanos = t.%nanoseconds + offset-nanos;
-  let days = t.%days;
-  if (nanos > $nanos/day)
-    days := days + 1;
-    nanos := remainder(nanos, $nanos/day);
-  elseif (nanos < 0)
-    days := days - 1;
-    nanos := nanos + $nanos/day;
-  end;
+  // Adjust days and nanos for the zone offset. We negate it because we're
+  // going from UTC to local.
+  let offset-nanos = -(zone-offset(zone | t.%zone) * $nanos/minute);
+  let (days, nanos) = adjust-for-zone-offset(t.%days, t.%nanoseconds, offset-nanos);
 
   let (year, month, day) = civil-from-days(days);
   let month = as(<month>, month);
