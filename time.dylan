@@ -34,21 +34,27 @@ define sealed generic time-zone         (t :: <time>) => (zone :: <zone>);
 // the returned time and used for display purposes.
 define sealed generic time-now (#key zone) => (t :: <time>);
 
-// Decompose `t` into its component parts for presentation.
+// Decompose `t` into its component parts for presentation. The zone in `time`
+// may be overridden by providing the `zone` argument.
 define sealed generic time-components
-    (t :: <time>)
+    (t :: <time>, #key zone)
  => (year :: <integer>, month :: <month>, day-of-month :: <integer>,
      hour :: <integer>, minute :: <integer>, second :: <integer>,
      nanosecond :: <integer>, zone :: <zone>, day-of-week :: <day>);
 
+// Create a time from the given components.
 define sealed generic make-time
     (year :: <integer>, month :: <month>, day :: <integer>,
      hour :: <integer>, minute :: <integer>, second :: <integer>,
      nanosecond :: <integer>, zone :: <zone>)
  => (t :: <time>);
 
+define generic time-in-zone
+    (t :: <time>, zone :: <zone>) => (t2 :: <time>);
+
+// The zone in `time` may be overridden by providing the `zone` argument.
 define sealed generic format-time
-    (stream :: <stream>, format :: <object>, time :: <time>) => ();
+    (stream :: <stream>, format :: <object>, time :: <time>, #key zone) => ();
 
 define sealed generic parse-time
     (time :: <string>, #key format, zone) => (time :: <time>);
@@ -61,8 +67,7 @@ define method print-object
     (time :: <time>, stream :: <stream>) => ()
   if (*print-escape?*)
     printing-object (time, stream)
-      format(stream, "%dd, %dns", time.%days, time.%nanoseconds);
-      // later: format-time(stream, $rfc3339, time); 
+      format(stream, "%dd %dns", time.%days, time.%nanoseconds);
     end;
   else
     format-time(stream, $rfc3339, time);
@@ -248,6 +253,10 @@ define method make-time
     (y :: <integer>, mon :: <month>, d :: <integer>, h :: <integer>,
      min :: <integer>, sec :: <integer>, nano :: <integer>, zone :: <zone>)
  => (_ :: <time>)
+  // TODO: currently the y, mon, d, etc parameters specify a time in UTC and
+  // then the zone is tacked on for display. I think intuitively "I'm making a
+  // time in zone `zone`" so the days/nanos of the time should be adjusted
+  // based on the zone at this point.  What does Python do?
   make(<time>,
        days: days-from-civil(y, month-number(mon), d),
        nanoseconds: (h * 60 * 60_000_000_000
@@ -255,6 +264,11 @@ define method make-time
                        + sec * 1_000_000_000
                        + nano),
        zone: zone)
+end method;
+
+define method time-in-zone
+    (t :: <time>, zone :: <zone>) => (t2 :: <time>)
+  make(<time>, days: t.%days, nanoseconds: t.%nanoseconds, zone: zone)
 end method;
 
 // Returns year/month/day triple in civil calendar.  This directly follows the
@@ -284,16 +298,30 @@ define constant $nanos/minute :: <integer> =  60_000_000_000;
 define constant $nanos/second :: <integer> =   1_000_000_000;
 
 define method time-components
-    (t :: <time>)
+    (t :: <time>, #key zone :: <zone>?)
  => (y :: <integer>, mon :: <month>, d :: <integer>, h :: <integer>,
      min :: <integer>, sec :: <integer>, nano :: <integer>, zone :: <zone>,
      dow :: <day>)
   // TODO: it would be faster to bit-pack the hour/minute/second/nanos as
   // separate numbers (30+6+6+5=47 bits required) rather than doing all this
   // division.
-  let (year, month, day) = civil-from-days(t.%days);
+
+  // Adjust days if zone offset puts time in a different day.  One must normall
+  // subtract the offset from the local time to get UTC but here we have UTC
+  // days+nanos in t and want local, so we add the offset.
+  let offset-nanos = zone-offset(zone | t.%zone) * $nanos/minute;
+  let nanos = t.%nanoseconds + offset-nanos;
+  let days = t.%days;
+  if (nanos > $nanos/day)
+    days := days + 1;
+    nanos := remainder(nanos, $nanos/day);
+  elseif (nanos < 0)
+    days := days - 1;
+    nanos := nanos + $nanos/day;
+  end;
+
+  let (year, month, day) = civil-from-days(days);
   let month = as(<month>, month);
-  let nanos = t.%nanoseconds;
   let hour = floor/(nanos, $nanos/hour);
   nanos := nanos - hour * $nanos/hour;
   let minute = floor/(nanos, $nanos/minute);

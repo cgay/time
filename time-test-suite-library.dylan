@@ -10,8 +10,7 @@ end;
 define module time-test-suite
   use common-dylan;
   use format;
-  use streams,
-    import: { with-output-to-string };
+  use streams;
   use testworks;
   use time;
   use %time;

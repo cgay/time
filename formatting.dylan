@@ -27,8 +27,8 @@ define method print-object
   end;
 end method;
 
-// Parse a time format string into a sequence of literal strings and formatter functions
-// like #"four-digit-year".
+// Parse a time format string into a sequence of literal strings and formatter
+// functions.
 //
 // TODO: there's no way to escape the {} characters if you want those literally
 // in the time format. Does it matter?
@@ -71,17 +71,19 @@ define function parse-time-format (descriptor :: <string>) => (_ :: <sequence>)
   end iterate
 end function;
 
-// Each value is a pair of #(time-element-index . formatter-function) where
-// time-element-index is the index into the return values list of the
+// Each value is a pair of #(time-component . formatter-function) where
+// time-component is the index into the return values list of the
 // time-components function. 0 = year, 1 = month, etc
 //
 // TODO: make this extensible
 define table $time-format-map :: <string-table>
   = { "yyyy"   => pair(0, curry(format-ndigit-int, 4)),
-      "yy"     => pair(0, curry(format-ndigit-int-modn, 2, 100)),
+      "yy"     => pair(0, curry(format-ndigit-int-mod, 2, 100)),
       "mm"     => pair(1, method (stream, month)
                             format-ndigit-int(2, stream, month.month-number)
                           end),
+      "mon"    => pair(1, format-short-month-name),
+      "month"  => pair(1, format-long-month-name),
       "dd"     => pair(2, curry(format-ndigit-int, 2)),
       "HH"     => pair(3, curry(format-ndigit-int, 2)),
       "hh"     => pair(3, format-hour-12),
@@ -91,28 +93,51 @@ define table $time-format-map :: <string-table>
       "PM"     => pair(3, format-uppercase-am-pm),
       "MM"     => pair(4, curry(format-ndigit-int, 2)),
       "SS"     => pair(5, curry(format-ndigit-int, 2)),
-      "ff"     => pair(6, curry(format-ndigit-int-modn, 2, 100)), // 'f' for fraction
-      "fff"    => pair(6, curry(format-ndigit-int-modn, 3, 1000)),
-      "ffffff" => pair(6, curry(format-ndigit-int-modn, 6, 1_000_000)),
-      "fffffffff" => pair(6, curry(format-ndigit-int-modn, 9, 1_000_000_000)),
-      "millis" => pair(6, curry(format-ndigit-int-modn, 3, 1000)),
-      "micros" => pair(6, curry(format-ndigit-int-modn, 6, 1_000_000)),
-      "nanos"  => pair(6, curry(format-ndigit-int-modn, 9, 1_000_000_000)),
+      "millis" => pair(6, curry(format-ndigit-int-mod, 3, 1000)),
+      "micros" => pair(6, curry(format-ndigit-int-mod, 6, 1_000_000)),
+      "nanos"  => pair(6, curry(format-ndigit-int-mod, 9, 1_000_000_000)),
+      // f = fractional seconds with minimum digits. fN outputs exactly N digits.
+      "f"      => pair(6, format-nanos-with-minimum-digits),
+      // Not sure if some of these will be used, but might as well be complete.
+      "f1"     => pair(6, curry(format-ndigit-int-mod, 1, 10)),
+      "f2"     => pair(6, curry(format-ndigit-int-mod, 2, 100)),
+      "f3"     => pair(6, curry(format-ndigit-int-mod, 3, 1000)),
+      "f4"     => pair(6, curry(format-ndigit-int-mod, 4, 10_000)),
+      "f5"     => pair(6, curry(format-ndigit-int-mod, 5, 100_000)),
+      "f6"     => pair(6, curry(format-ndigit-int-mod, 6, 1_000_000)),
+      "f7"     => pair(6, curry(format-ndigit-int-mod, 7, 10_000_000)),
+      "f8"     => pair(6, curry(format-ndigit-int-mod, 8, 100_000_000)),
+      "f9"     => pair(6, curry(format-ndigit-int-mod, 9, 1_000_000_000)),
 
       "zone"     => pair(7, format-zone-name),       // UTC, PST, etc
       "offset"   => pair(7, rcurry(format-zone-offset, colon?: #f, utc-name: #f)), // +0000
       "offset:"  => pair(7, rcurry(format-zone-offset, colon?: #t, utc-name: #f)), // +00:00
       "offset:Z" => pair(7, rcurry(format-zone-offset, colon?: #t, utc-name: "Z")), // Z or +02:00
-      "offsetZ:" => pair(7, rcurry(format-zone-offset, colon?: #t, utc-name: "Z")), // ditto
 
       "day"     => pair(8, format-short-weekday),
       "weekday" => pair(8, format-long-weekday),
-      "mon"     => pair(1, format-short-month-name),
-      "month"   => pair(1, format-long-month-name)
      };
 
-// TODO: ...-modn name is confusing with n parameter.
-define /* inline */ function format-ndigit-int-modn
+define function format-nanos-with-minimum-digits
+    (stream :: <stream>, nanos :: <integer>) => ()
+  if (nanos = 0)
+    // Since the '.' must be a literal string in the formatter, provided by the
+    // user, we need to output something even if nanos are 0.
+    write-element(stream, '0');
+  else
+    // We could do fewer divisions than this. Binary search, essentially.
+    iterate loop(n = nanos, i = 9)
+      let (q, r) = floor/(n, 10);
+      if (r = 0)
+        loop(q, i - 1)
+      else
+        write(stream, integer-to-string(n, size: i));
+      end;
+    end iterate;
+  end;
+end function;
+
+define /* inline */ function format-ndigit-int-mod
     (digits :: <integer>, mod :: <integer>, stream :: <stream>, n :: <integer>) => ()
   let n :: <integer> = modulo(n, mod);
   write(stream, integer-to-string(n, size: digits, fill: '0'));
@@ -149,19 +174,21 @@ define method format-zone-name
   write(stream, zone.zone-name);
 end method;
 
+// See RFC 3339 time-zone BNF
 define method format-zone-offset
     (stream :: <stream>, zone :: <naive-zone>,
-     #key colon? :: <boolean>,
-          utc-name :: <string>?)
+     #key colon? :: <boolean>, utc-name :: <string>?)
  => ()
   let offset = zone-offset(zone);
   if (offset = 0 & utc-name)
     write(stream, utc-name);
   else
-    let offset-minutes = truncate/(abs(offset), 60);
-    write(stream, if (offset-minutes < 0) "-" else "+" end);
-    let (hour, minute) = truncate/(offset-minutes, 60);
+    write-element(stream, if (offset < 0) '-' else '+' end);
+    let (hour, minute) = truncate/(abs(offset), 60);
     format-ndigit-int(2, stream, hour);
+    if (colon?)
+      write-element(stream, ':')
+    end;
     format-ndigit-int(2, stream, minute);
   end;
 end method;
@@ -186,29 +213,35 @@ define /* inline */ function format-long-month-name
   write(stream, month.month-long-name);
 end function;
 
-// Print `time` on `stream` based on `format`.
-define method print-time
-    (time :: <time>,
-     #key stream :: <stream> = *standard-output*,
-          format :: <time-format> = $rfc3339)
- => ()
-  format-time(stream, format, time);
-end method;
+// RFC 3339 format, using the fewest possible digits for fractional seconds.
+define constant $rfc3339 :: <time-format>
+  = make(<time-format>, string: "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}.{f}{offset:Z}");
+
+// RFC 3339 format, to millisecond precision
+define constant $rfc3339-milliseconds :: <time-format>
+  = make(<time-format>, string: "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}.{millis}{offset:Z}");
+
+// RFC 3339 format, to microsecond precision
+define constant $rfc3339-microseconds :: <time-format>
+  = make(<time-format>, string: "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}.{micros}{offset:Z}");
 
 define /* inline */ method format-time
-    (stream :: <stream>, fmt :: <time-format>, time :: <time>) => ()
-  format-time(stream, time-format-parsed(fmt), time);
+    (stream :: <stream>, fmt :: <time-format>, time :: <time>, #key zone :: <zone>?)
+ => ()
+  format-time(stream, time-format-parsed(fmt), time, zone: zone);
 end method;
 
 // If you care about performance of this formatting, make a <time-format>
 // explicitly instead, so it will be parsed only once.
 define /* inline */ method format-time
-    (stream :: <stream>, fmt :: <string>, time :: <time>) => ()
-  format-time(stream, parse-time-format(fmt), time);
+    (stream :: <stream>, fmt :: <string>, time :: <time>, #key zone :: <zone>?)
+ => ()
+  format-time(stream, parse-time-format(fmt), time, zone: zone);
 end method;
 
 define /* inline */ method format-time
-    (stream :: <stream>, fmt :: <sequence>, time :: <time>) => ()
+    (stream :: <stream>, fmt :: <sequence>, time :: <time>, #key zone :: <zone>?)
+ => ()
   // I'm assuming that v is stack allocated. Verify.
   let (#rest v) = time-components(time);
   for (item in fmt)
@@ -225,9 +258,6 @@ define /* inline */ method format-time
     end;
   end;
 end method;
-
-define constant $rfc3339 :: <time-format>
-  = make(<time-format>, string: "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}{offset}");
 
 
 

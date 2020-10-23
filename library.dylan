@@ -33,9 +33,10 @@ define module time
       time-day-of-week,
     $epoch,
     
-    print-time,
     format-time,
-    $rfc3339,
+    $rfc3339,                   // minimum digits for fractional seconds
+    $rfc3339-milliseconds,      // 3 digit fractional second
+    $rfc3339-microseconds,      // 6 digit fractional second
 
     // Durations
     <duration>,
@@ -60,6 +61,7 @@ define module time
 
     // Conversions
     make-time,                  // from its components
+    time-in-zone,
     time-components,
     parse-time,                 // TODO: $iso-8601-format etc?
     parse-duration,

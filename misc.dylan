@@ -9,7 +9,7 @@ Module: %time
 // I don't like the verbosity of false-or. Let's see how this looks.
 define constant <string>? = false-or(<string>);
 define constant <time>? = false-or(<time>);
-
+define constant <zone>? = false-or(<zone>);
 
 // --- Errors ---
 
