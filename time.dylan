@@ -306,9 +306,9 @@ define method time-components
   // separate numbers (30+6+6+5=47 bits required) rather than doing all this
   // division.
 
-  // Adjust days if zone offset puts time in a different day.  One must normall
-  // subtract the offset from the local time to get UTC but here we have UTC
-  // days+nanos in t and want local, so we add the offset.
+  // Adjust days if zone offset puts time in a different day.  One must
+  // normally subtract the offset from the local time to get UTC but here we
+  // have UTC days+nanos in t and want local, so we add the offset.
   let offset-nanos = zone-offset(zone | t.%zone) * $nanos/minute;
   let nanos = t.%nanoseconds + offset-nanos;
   let days = t.%days;

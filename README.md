@@ -35,7 +35,7 @@ The `time` library exports a single module, `time` which exports these classes:
 * `<duration>` - the elapsed time between two time instants, to nanosecond
   precision.
 
-* `<time-zone>` - A time zone, either "naive" or "aware". (See the next two
+* `<zone>` - A time zone, either "naive" or "aware". (See the next two
   classes.)
 
 * `<naive-zone>` - A time zone that always represents the same offset from
