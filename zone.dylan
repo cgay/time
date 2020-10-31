@@ -101,9 +101,16 @@ define constant $utc :: <naive-zone>
          abbreviation: "UTC",
          offset: 0);
 
+define variable *local-time-zone* :: <zone>? = #f;
+
+define constant $local-time-zone-lock = make(<lock>);
+
 define method local-time-zone () => (zone :: <zone>)
-  // TODO
-  $utc
+  *local-time-zone*
+    | with-lock ($local-time-zone-lock)
+        *local-time-zone*       // check again with lock held
+          | (*local-time-zone* := %local-time-zone()); // platform specific implementations
+      end
 end method;
 
 define function zone-subzone
@@ -190,3 +197,11 @@ define method zone-offset-string
   offset-to-string(zone-offset(zone, time: time | time-now()))
 end method;
 
+define constant $zones-by-long-name :: <string-table> = make(<string-table>);
+define constant $zones-by-abbreviation :: <string-table> = make(<string-table>);
+
+// Find a zone by long name and then, if not found, fall back to abbreviations.
+define function find-zone (name :: <string>) => (zone :: <zone>?)
+  element($zones-by-long-name, name, default: #f)
+    | element($zones-by-abbreviation, name, default: #f)
+end function;

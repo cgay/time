@@ -75,6 +75,7 @@ end function;
 // time-component is the index into the return values list of the
 // time-components function. 0 = year, 1 = month, etc
 //
+// TODO: BC/AD, BCE/CE (see ISO 8601)
 // TODO: make this extensible
 define table $time-format-map :: <string-table>
   = { "yyyy"   => pair(0, curry(format-ndigit-int, 4)),

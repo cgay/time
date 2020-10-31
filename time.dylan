@@ -275,6 +275,9 @@ define method make-time
                        + min * 60_000_000_000
                        + sec * 1_000_000_000
                        + nano);
+  // TODO: this call to zone-offset ends up calling time-now(). We shouldn't
+  // need to allocate an extra <time> to make a <time>. Make a %zone-offset
+  // that accepts days and nanos and a %time-now that returns them?
   let (days, nanos)
     = adjust-for-zone-offset(days, nanoseconds, zone-offset(zone) * $nanos/minute);
   make(<time>,
@@ -325,7 +328,7 @@ define method time-components
 
   // Adjust days and nanos for the zone offset. We negate it because we're
   // going from UTC to local.
-  let offset-nanos = -(zone-offset(zone | t.%zone) * $nanos/minute);
+  let offset-nanos = -(zone-offset(zone | t.%zone, time: t) * $nanos/minute);
   let (days, nanos) = adjust-for-zone-offset(t.%days, t.%nanoseconds, offset-nanos);
 
   let (year, month, day) = civil-from-days(days);
@@ -407,7 +410,7 @@ end method;
 
 // --- Days of the week ---
 
-// TODO: do we need day-number => 1..7?  day-letter? (probably not, no standard)
+// TODO: do we need day-number => 1..7? 0..6? (no standard)
 define sealed generic day-long-name (d :: <day>) => (name :: <string>);
 define sealed generic day-short-name (d :: <day>) => (name :: <string>);
 define sealed generic parse-day (name :: <string>) => (day :: <day>);

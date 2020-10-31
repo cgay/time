@@ -51,3 +51,62 @@ ignore(get-clock-monotonic-raw,
        tm-mday, tm-min, tm-isdst, tm-mon, tm-year,
        tm-wday, tm-yday, tm-sec, tm-hour,
        c-gmtime);
+
+
+// --- Find local time zone from system configuration ---
+
+// Much of this is cribbed from Python's tzlocal package.
+
+define function %local-time-zone
+    (#key root-directory = "/") => (zone :: <zone>)
+  find-zone-from-environment(root-directory)
+    | find-zone-from-etc-timezone(root-directory)
+    | find-zone-from-etc-sysconfig-clock(root-directory)
+    | find-zone-from-systemd-link(root-directory)
+    | find-zone-from-etc-localtime(root-directory)
+    | $utc
+end function;
+
+// https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html
+// specifies a bunch of $TZ formats that we won't support because Python
+// doesn't either. I'm assuming they're obsolete.
+define function find-zone-from-environment
+    (root-directory :: <string>) => (zone :: <zone>?)
+  // TODO
+end function;
+
+define function find-zone-from-etc-timezone
+    (root-directory :: <string>) => (zone :: <zone>?)
+  // TODO
+end function;
+
+define function find-zone-from-etc-sysconfig-clock
+    (root-directory :: <string>) => (zone :: <zone>?)
+  // TODO
+end function;
+
+// systemd distributions use symlinks that include the zone name.
+// Ex: /etc/localtime -> /usr/share/zoneinfo/UTC
+define function find-zone-from-systemd-link
+    (root-directory :: <string>) => (zone :: <zone>?)
+  let filename = concatenate(root-directory, "etc/localtime");
+  if (file-exists?(filename))
+    let real-path = resolve-locator(as(<file-locator>, filename));
+    let tzname = locator-name(real-path);
+    find-zone(tzname)
+  end
+end function;
+
+define function find-zone-from-etc-localtime
+    (root-directory :: <string>) => (zone :: <zone>?)
+  // TODO
+end function;
+
+
+// --- Loading zones ---
+
+// This is the per-platform entry point to load zone data from the file system.
+define function load-zone-data
+    () => (zones :: <sequence>)
+  load-tzif-zone-data(as(<directory-locator>, "/usr/share/zoneinfo"))
+end function;

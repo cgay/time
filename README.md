@@ -123,4 +123,10 @@ The library API can be logically separated into several parts:
 * https://tools.ietf.org/html/rfc2822#page-14
 * https://tools.ietf.org/html/rfc3339
 * https://tools.ietf.org/html/rfc5322#page-14
-* http://howardhinnant.github.io/date_algorithms.html
+* [This paper](http://howardhinnant.github.io/date_algorithms.html
+* [This discussion](https://groups.google.com/g/julia-dev/c/YlriSMrVTVs/m/cgf7P8xXzB8J?pli=1)
+  from the julia-dev list is very enlightening about the distinctions between various time
+  concepts.
+* [This blog post](https://codeblog.jonskeet.uk/2010/12/01/the-joys-of-date-time-arithmetic/)
+  on some of the oddities of date/time arithmetic.
+* [RFC 8536, TZif format](https://tools.ietf.org/html/rfc8536)

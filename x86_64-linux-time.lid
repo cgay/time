@@ -2,6 +2,7 @@ library: time
 files: library
        misc
        zone
+       tzif
        time
        formatting
        unix-time

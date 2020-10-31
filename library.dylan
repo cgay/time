@@ -8,6 +8,8 @@ define library time
   use io,
     import: { format, format-out, print, pprint, standard-io, streams };
   use strings;
+  use system,
+    import: { file-system, locators, threads };
   export
     time,
     %time;                // for unit tests only! depend on this at your peril!
@@ -88,6 +90,7 @@ define module time
     zone-name,
     zone-offset,
     zone-offset-string,
+    find-zone,
     local-time-zone,
     $utc;
 end module time;
@@ -98,19 +101,26 @@ define module %time
 
   use c-ffi;
   use common-dylan;
+  use file-system,
+    import: { <file-locator>, do-directory, file-exists?, locator-name, resolve-locator,
+              with-open-file };
   use format,
     import: { format, format-to-string };
   use format-out;
+  use locators,
+    import: { <directory-locator>, <file-locator>, locator-name, resolve-locator };
   use print,
     import: { print, print-object, printing-object, *print-escape?* };
   use standard-io,
     import: { *standard-output* };
   use streams,
-    import: { <stream>, write, write-element };
+    import: { <byte>, <stream>, read, write, write-element };
   use strings,
     import: { decimal-digit?, string-equal-ic?, whitespace? };
   use table-extensions,
     rename: { <case-insensitive-string-table> => <istring-table> };
+  use threads,
+    import: { <lock>, with-lock };
 
   // Exports for tests only.
   export
@@ -118,5 +128,6 @@ define module %time
     %nanoseconds,
     <naive-zone>,
     <aware-zone>,
-    <subzone>;
+    <subzone>,
+    load-tzif-file;
 end module %time;
