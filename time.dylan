@@ -249,9 +249,10 @@ define /* inline */ function days-from-civil
   era * 146097 + doe - 719468
 end;
 
-// Adjust `days` and `nanos` to UTC time by subtracting `offset-nanos`, which
-// could cross a day boundary. Pass the negated zone offset to adjust UTC to
-// local.  Returns the adjusted days and nanoseconds for constructing a `<time>`.
+// Adjust `days` and `nanoseconds` to UTC time by subtracting `offset-nanos`,
+// which could cross a day boundary. To adjust UTC to local pass the negated
+// zone offset instead.  Returns the adjusted days and nanoseconds for
+// constructing a `<time>`.
 define inline function adjust-for-zone-offset
     (days :: <integer>, nanoseconds :: <integer>, offset-nanos :: <integer>)
  => (d :: <integer>, n :: <integer>)
@@ -279,7 +280,7 @@ define method make-time
   // need to allocate an extra <time> to make a <time>. Make a %zone-offset
   // that accepts days and nanos and a %time-now that returns them?
   let (days, nanos)
-    = adjust-for-zone-offset(days, nanoseconds, zone-offset(zone) * $nanos/minute);
+    = adjust-for-zone-offset(days, nanoseconds, zone-offset(zone) * $nanos/second);
   make(<time>,
        days: days,
        nanoseconds: nanos,
@@ -328,7 +329,7 @@ define method time-components
 
   // Adjust days and nanos for the zone offset. We negate it because we're
   // going from UTC to local.
-  let offset-nanos = -(zone-offset(zone | t.%zone, time: t) * $nanos/minute);
+  let offset-nanos = -(zone-offset(zone | t.%zone, time: t) * $nanos/second);
   let (days, nanos) = adjust-for-zone-offset(t.%days, t.%nanoseconds, offset-nanos);
 
   let (year, month, day) = civil-from-days(days);

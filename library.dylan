@@ -129,5 +129,7 @@ define module %time
     <naive-zone>,
     <aware-zone>,
     <subzone>,
+    $min-offset,
+    $max-offset,
     load-tzif-file;
 end module %time;

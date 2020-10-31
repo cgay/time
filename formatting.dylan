@@ -185,14 +185,24 @@ define method format-zone-offset
     write(stream, utc-name);
   else
     write-element(stream, if (offset < 0) '-' else '+' end);
-    let (hour, minute) = truncate/(abs(offset), 60);
+    let (hour, rem) = truncate/(abs(offset), 3600);
+    let (minute, second) = truncate/(rem, 60);
     format-ndigit-int(2, stream, hour);
     if (colon?)
       write-element(stream, ':')
     end;
     format-ndigit-int(2, stream, minute);
+    if (second ~= 0)
+      if (colon?)
+        write-element(stream, ':');
+      end;
+      format-ndigit-int(2, stream, second);
+    end;
   end;
 end method;
+
+// TODO: format-zone-offset for <aware-zone>. It needs to receive the reference
+// time to calculate the offset.
 
 define /* inline */ function format-short-weekday
     (stream :: <stream>, day :: <day>) => ()

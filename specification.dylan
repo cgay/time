@@ -131,7 +131,7 @@ define sideways method make-test-instance (class == <aware-zone>) => (zone :: <a
        name: "make-test-instance(<aware-zone>)",
        subzones: vector(make(<subzone>,
                              start-time: $epoch,
-                             offset: 60,
+                             offset: 60 * 60,
                              abbrev: "x",
                              dst?: #t)))
 end method;

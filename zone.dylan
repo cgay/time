@@ -7,12 +7,9 @@ define sealed generic zone-name (zone :: <zone>) => (name :: <string>);
 // Returns the local time zone, according to the operating system.
 define generic local-time-zone () => (zone :: <zone>);
 
-// The UTC offset in minutes at time `time` in zone `zone`. For `<aware-zone>`
+// The UTC offset in seconds at time `time` in zone `zone`. For `<aware-zone>`
 // a time should be passed so the offset at that time may be determined. If
 // not provided, the current time is used instead.
-//
-// It is possible, at least historically, to have an offset with fractional
-// minutes but we don't support it.
 define sealed generic zone-offset
     (zone :: <zone>, #key time) => (minutes :: <integer>);
 
@@ -38,6 +35,17 @@ define generic zone-daylight-savings?
     (zone :: <zone>, #key time) => (dst? :: <boolean>);
 
 
+// RFC 8536 (TZif) min and max tz offset values, in seconds.
+define constant $min-offset = -25 * 60 * 60 + 1;
+define constant $max-offset =  26 * 60 * 60 - 1;
+
+define inline function check-offset (offset :: <integer>)
+  if (offset < $min-offset | offset > $max-offset)
+    time-error("Time zone offsets must be seconds in the range (%d, %d), got %=",
+               $min-offset, $max-offset, offset);
+  end;
+end function;
+
 // A <subzone> represents the values for a timezone over a period of time
 // starting at subzone-start-time and ending when a newer <subzone> shadows it.
 define class <subzone> (<object>)
@@ -48,25 +56,23 @@ define class <subzone> (<object>)
   constant slot subzone-dst? :: <boolean>, required-init-keyword: dst?:;
 end class;
 
+define method initialize (subzone :: <subzone>, #key offset :: <integer>)
+  check-offset(offset);
+end method;
+
 define abstract class <zone> (<object>)
   constant slot zone-name :: <string>, required-init-keyword: name:;
 end class;
 
-// Naive zones have a constant offset from UTC and constant abbreviation over time.
+// Naive zones have a constant offset from UTC and constant abbreviation over
+// time.
 define class <naive-zone> (<zone>)
   constant slot %offset :: <integer>, required-init-keyword: offset:;
   constant slot %abbreviation :: <string>?, init-keyword: abbreviation:;
 end class;
 
-define method initialize (zone :: <naive-zone>, #key offset :: <integer>, #all-keys)
-  // Validate the offset. Current max is +14h, min is -12h, but there's nothing
-  // that says some place won't use a larger value, so arbitrarily choosing +/-
-  // 15h, which will at least prevent crazy accidental values, for example if
-  // seconds are used instead of minutes.
-  if (offset > 15 * 60 | offset < -15 * 60)
-    time-error("Time zone offsets must be between -15h (%d) and +15h (%d), got %=",
-               -15 * 60, 15 * 60, offset);
-  end;
+define method initialize (zone :: <naive-zone>, #key offset :: <integer>)
+  check-offset(offset);
 end method;
 
 // Aware zones may have different offsets or abbreviations over time.
@@ -81,15 +87,10 @@ end class;
 define method initialize (zone :: <aware-zone>, #key subzones :: <vector>, #all-keys)
   let prev-time = #f;
   for (subzone in subzones)
-    let offset = subzone.subzone-offset;
-    if (offset > 15 * 60 | offset < -15 * 60)
-      time-error("Time zone offsets must be between -15h (%d) and +15h (%d), got %=",
-                 -15 * 60, 15 * 60, offset);
-    end;
     let start = subzone.subzone-start-time;
     if (prev-time & prev-time <= start)
-      time-error("Time zone data for %= is invalid; it should be older than %s",
-                 subzone, prev-time);
+      time-error("Subzone start time (%=) for %= is invalid; it should be older than"
+                   " the subzone that preceded it.", subzone, prev-time);
     end;
     prev-time := start;
   end;

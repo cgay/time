@@ -73,7 +73,7 @@ define test test-time-= ()
   // regardless of zone.
   assert-equal(make(<time>, days: 1, nanoseconds: 1, zone: $utc),
                make(<time>, days: 1, nanoseconds: 1,
-                    zone: make(<naive-zone>, name: "x", offset: 300)));
+                    zone: make(<naive-zone>, name: "x", offset: 5 * 60 * 60)));
 end test;
 
 define test test-time-< ()
