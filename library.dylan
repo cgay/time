@@ -114,7 +114,7 @@ define module %time
   use standard-io,
     import: { *standard-output* };
   use streams,
-    import: { <byte>, <stream>, read, write, write-element };
+    import: { <byte>, <stream>, read-to-end, write, write-element };
   use strings,
     import: { decimal-digit?, string-equal-ic?, whitespace? };
   use table-extensions,
@@ -131,5 +131,9 @@ define module %time
     <subzone>,
     $min-offset,
     $max-offset,
+
+    // tzif
+    bytes-to-int32,
+    bytes-to-int64,
     load-tzif-file;
 end module %time;
