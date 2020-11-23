@@ -117,12 +117,19 @@ define function parse-v1-zone
     (tzif :: <tzif>, start :: <integer>) => (zone :: <zone>)
   let transition-times-start = $tzif-header-octets;
   let transition-types-start = transition-times-start + (4 * tzif.tzif-time-count);
-  let local-times-start = transition-types-start + tzif.tzif-time-count;
-  let tz-designations-start = local-times-start + (6 * tzif.tzif-type-count);
-  let leap-second-start = tz-designations-start + tzif.tzif-char-count;
-  let standard/wall-start = leap-second-start + ((4 + 4) * tzif.tzif-leap-count);
-  let ut/local-start = standard/wall-start + tzif.tzif-is-std-count;
-  
+  let local-times-start      = transition-types-start + tzif.tzif-time-count;
+  let tz-designations-start  = local-times-start + (6 * tzif.tzif-type-count);
+  let leap-second-start      = tz-designations-start + tzif.tzif-char-count;
+  let standard/wall-start    = leap-second-start + ((4 + 4) * tzif.tzif-leap-count);
+  let ut/local-start         = standard/wall-start + tzif.tzif-is-std-count;
+
+/*
+  let subzone = make(<subzone>,
+                     start-time: ...,
+                     offset: ...,
+                     abbrev: ...,
+                     dst?: ...);
+*/
 end function;
 
 define function parse-v2-zone

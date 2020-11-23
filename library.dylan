@@ -34,7 +34,7 @@ define module time
       time-zone,
       time-day-of-week,
     $epoch,
-    
+
     format-time,
     $rfc3339,                   // minimum digits for fractional seconds
     $rfc3339-milliseconds,      // 3 digit fractional second

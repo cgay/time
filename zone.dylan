@@ -60,6 +60,13 @@ define method initialize (subzone :: <subzone>, #key offset :: <integer>)
   check-offset(offset);
 end method;
 
+define method print-object (s :: <subzone>, stream :: <stream>) => ()
+  printing-object(s, stream)
+    format(stream, "start=%s offset=%d abbrev=%s dst?=%=",
+           s.subzone-start-time, s.subzone-offset, s.subzone-abbrev, s.subzone-dst?);
+  end;
+end method;
+
 define abstract class <zone> (<object>)
   constant slot zone-name :: <string>, required-init-keyword: name:;
 end class;
@@ -73,6 +80,13 @@ end class;
 
 define method initialize (zone :: <naive-zone>, #key offset :: <integer>)
   check-offset(offset);
+end method;
+
+define method print-object (zone :: <naive-zone>, stream :: <stream>) => ()
+  printing-object(zone, stream)
+    format(stream, "%= (%s) offset=%d",
+           zone.zone-name, zone.%abbreviation, zone.%offset);
+  end;
 end method;
 
 // Aware zones may have different offsets or abbreviations over time.
@@ -93,6 +107,12 @@ define method initialize (zone :: <aware-zone>, #key subzones :: <vector>, #all-
                    " the subzone that preceded it.", subzone, prev-time);
     end;
     prev-time := start;
+  end;
+end method;
+
+define method print-object (zone :: <aware-zone>, stream :: <stream>) => ()
+  printing-object(zone, stream)
+    format(stream, "%s, %d subzones", zone.zone-name, zone.subzones.size);
   end;
 end method;
 

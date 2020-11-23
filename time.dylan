@@ -9,12 +9,24 @@ define class <time> (<object>)
   constant slot %days :: <integer> = 0, init-keyword: days:;
 
   // Number of nanoseconds within the day. May be positive or negative.
+  // TODO(cgay): TBH I'm not 100% sure if this can be negative. Double check.
+  //    Might need to adjust $minimum-time if so.
   constant slot %nanoseconds :: <integer> = 0, init-keyword: nanoseconds:;
 
   // Time zone to use when displaying this time. This is for convenience, so
   // that it isn't necessary to pass a zone whenever displaying the time.
   constant slot %zone :: <zone> = $utc, init-keyword: zone:;
 end class;
+
+define method print-object (time :: <time>, stream :: <stream>) => ()
+  if (*print-escape?*)
+    printing-object (time, stream)
+      format(stream, "%dd %dns", time.%days, time.%nanoseconds);
+    end;
+  else
+    format-time(stream, $rfc3339, time);
+  end;
+end method;
 
 define constant $epoch :: <time>
   = make(<time>, days: 0, nanoseconds: 0, zone: $utc);
@@ -62,17 +74,6 @@ define sealed generic parse-time
 // TODO:
 // define sealed generic round-time (t :: <time>, d :: <duration>) => (t :: <time>);
 // define sealed generic truncate-time (t :: <time>, d :: <duration>) => (t :: <time>);
-
-define method print-object
-    (time :: <time>, stream :: <stream>) => ()
-  if (*print-escape?*)
-    printing-object (time, stream)
-      format(stream, "%dd %dns", time.%days, time.%nanoseconds);
-    end;
-  else
-    format-time(stream, $rfc3339, time);
-  end;
-end method;
 
 
 // --- <duration> and its generic functions ---
@@ -421,6 +422,16 @@ define sealed class <day> (<object>)
   constant slot day-short-name :: <string>, required-init-keyword: short-name:;
 end class;
 
+define method print-object (day :: <day>, stream :: <stream>) => ()
+  if (*print-escape?*)
+    printing-object (day, stream)
+      print(day.day-long-name, stream);
+    end;
+  else
+    print(day.day-long-name, stream);
+  end;
+end method;
+
 define constant $monday    :: <day> = make(<day>, short-name: "Mon", long-name: "Monday");
 define constant $tuesday   :: <day> = make(<day>, short-name: "Tue", long-name: "Tuesday");
 define constant $wednesday :: <day> = make(<day>, short-name: "Wed", long-name: "Wednesday");
@@ -479,6 +490,16 @@ define sealed class <month> (<object>)
   constant slot month-short-name :: <string>, required-init-keyword: short-name:;
   constant slot month-days :: <integer>,      required-init-keyword: days:;
 end class;
+
+define method print-object (month :: <month>, stream :: <stream>) => ()
+  if (*print-escape?*)
+    printing-object(month, stream, identity?: #f)
+      print(month.month-long-name, stream);
+    end;
+  else
+    print(month.month-long-name, stream);
+  end;
+end method;
 
 define constant $january :: <month>
   = make(<month>, number:  1, short-name: "Jan", days: 31, long-name: "January");
