@@ -68,7 +68,7 @@ define function load-tzif-file
     parse-header(tzif, 0, 4);
     debug? & format-err("tzif: %=\n", tzif);
     debug? & force-err();
-
+    parse-v1-zone(tzif, $tzif-header-octets);
     select (tzif.tzif-version)
       1 => parse-v1-zone(tzif, $tzif-header-octets);
       2, 3 =>
@@ -115,21 +115,53 @@ end function;
 
 define function parse-v1-zone
     (tzif :: <tzif>, start :: <integer>) => (zone :: <zone>)
-  let transition-times-start = $tzif-header-octets;
-  let transition-types-start = transition-times-start + (4 * tzif.tzif-time-count);
-  let local-times-start      = transition-types-start + tzif.tzif-time-count;
-  let tz-designations-start  = local-times-start + (6 * tzif.tzif-type-count);
-  let leap-second-start      = tz-designations-start + tzif.tzif-char-count;
-  let standard/wall-start    = leap-second-start + ((4 + 4) * tzif.tzif-leap-count);
-  let ut/local-start         = standard/wall-start + tzif.tzif-is-std-count;
+  let trans-time-index = $tzif-header-octets;
+  let trans-type-index = trans-time-index + (4 * tzif.tzif-time-count);
+  let local-time-index = trans-type-index + tzif.tzif-time-count;
+  let tz-designator-index = local-time-index + (6 * tzif.tzif-type-count);
+  let leap-second-index   = tz-designator-index + tzif.tzif-char-count;
+  let std/wall-index = leap-second-index + ((4 + 4) * tzif.tzif-leap-count);
+  let ut/local-index = std/wall-index + tzif.tzif-is-std-count;
 
-/*
-  let subzone = make(<subzone>,
-                     start-time: ...,
-                     offset: ...,
-                     abbrev: ...,
-                     dst?: ...);
-*/
+  let bytes = tzif.tzif-data;
+  let subzones = make(<stretchy-vector>);
+  while (trans-time-index < bytes.size)
+    format-err("%d %d %d %d %d %d %d\n",
+               trans-time-index, trans-type-index, local-time-index,
+               tz-designator-index, leap-second-index, std/wall-index,
+               ut/local-index);
+    let ut = bytes-to-int32(bytes, start: trans-time-index);
+    format-err("ut = %d\n", ut);
+    let (days, seconds) = truncate/(ut, 86400);
+    let time = make(<time>, days: days, nanoseconds: abs(seconds) * 1_000_000_000);
+    format-err("time = %s and %=\n", time, time);
+    let offset1 = bytes-to-int32(bytes, start: local-time-index);
+    let dst = bytes[local-time-index + 4];
+    if (dst ~= 0 & dst ~= 1)
+      tzif-error("dst indicator in local time type record (%=) must be 0 or 1", dst);
+    end;
+    let idx = bytes[local-time-index + 5];
+    let abbrev = bytes-to-string(bytes, start: tz-designator-index + idx);
+    let subzone = make(<subzone>,
+                       start-time: time,
+                       offset: offset1,
+                       abbrev: abbrev,
+                       dst?: dst = 1);
+    format-err("subzone = %=\n", subzone);
+    force-err();
+    add!(subzones, subzone);
+
+    inc!(trans-time-index, 4);
+    inc!(trans-type-index);
+    inc!(local-time-index, 6);
+    inc!(tz-designator-index);
+    inc!(leap-second-index, 8);
+    inc!(std/wall-index);
+    inc!(ut/local-index);
+  end while;
+  make(<aware-zone>,
+       name: "TODO",
+       subzones: subzones)
 end function;
 
 define function parse-v2-zone
@@ -193,5 +225,19 @@ define function bytes-to-int64 (bytes, #key start = 0) => (i :: <integer>)
            ash(bytes[start + 5], 16),
            ash(bytes[start + 6], 8),
            bytes[start + 7])
+  end
+end function;
+
+// Parse a nul-terminated string from `bytes`.
+define function bytes-to-string (bytes, #key start = 0) => (_ :: <string>)
+  let v = make(<stretchy-vector>);
+  iterate loop (i = start)
+    let byte = bytes[i];
+    if (byte = 0)
+      map-as(<string>, curry(as, <character>), v)
+    else
+      add!(v, byte);
+      loop(i + 1)
+    end
   end
 end function;

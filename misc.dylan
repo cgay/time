@@ -11,6 +11,7 @@ define constant <string>? = false-or(<string>);
 define constant <time>? = false-or(<time>);
 define constant <zone>? = false-or(<zone>);
 
+
 // --- Errors ---
 
 // Errors explicitly signaled by this library are instances of <time-error>.
@@ -22,3 +23,12 @@ define function time-error(msg :: <string>, #rest format-args)
              format-arguments: format-args));
 end;
 
+
+// --- Macros ---
+
+define macro inc!
+  { inc! (?place:expression, ?dx:expression) }
+    => { ?place := ?place + ?dx; }
+  { inc! (?place:expression) }
+    => { ?place := ?place + 1; }
+end macro inc!;
