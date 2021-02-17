@@ -11,11 +11,12 @@ define generic local-time-zone () => (zone :: <zone>);
 // a time should be passed so the offset at that time may be determined. If
 // not provided, the current time is used instead.
 define sealed generic zone-offset
-    (zone :: <zone>, #key time) => (minutes :: <integer>);
+    (zone :: <zone>, #key time) => (seconds :: <integer>);
 
 // Returns a string describing the offset in minutes from UTC for zone `zone`
 // at time `time`.  For example, "+00:00" or "Z" for UTC itself or "-04:00" for
 // a time in EDT.
+// TODO: what about seconds? Only include them when non-zero?
 define sealed generic zone-offset-string
     (zone :: <zone>, #key time) => (offset :: <string>);
 
