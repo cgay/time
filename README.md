@@ -63,7 +63,7 @@ The library API can be logically separated into several parts:
   composing/decomposing them from/into their parts, or converting to a
   different zone.
 
-* Comparisons - the `=`, `<`, and '>' functions work on pairs of times and
+* Comparisons - the `=`, `<`, and `>` functions work on pairs of times and
   pairs of durations.
 
 * Arithmetic - the Dylan arithmetic operators are overloaded to work on
@@ -123,7 +123,7 @@ The library API can be logically separated into several parts:
 * https://tools.ietf.org/html/rfc2822#page-14
 * https://tools.ietf.org/html/rfc3339
 * https://tools.ietf.org/html/rfc5322#page-14
-* [This paper](http://howardhinnant.github.io/date_algorithms.html
+* [This paper](http://howardhinnant.github.io/date_algorithms.html)
 * [This discussion](https://groups.google.com/g/julia-dev/c/YlriSMrVTVs/m/cgf7P8xXzB8J?pli=1)
   from the julia-dev list is very enlightening about the distinctions between various time
   concepts.
