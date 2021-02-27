@@ -18,7 +18,7 @@ crazy.
 
 NOTE: The first version of this library assumes 64-bit integers. The
 contortions necessary to make it work on 32-bit were more than I wanted to deal
-with. My plan is to make that work by using <double-integer> on 32-bit
+with. My plan is to make that work by using `<double-integer>` on 32-bit
 architectures, but I don't want to pay the price in speed for doing that on
 the more common 64-bit platforms.
 
