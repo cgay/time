@@ -1,5 +1,12 @@
 # A Time Library for Dylan
 
+**Current status as of Oct 2021:**
+
+*  Most APIs work, but on Linux only.
+*  No TZ data yet so only naive time zones work.
+*  Needs more tests.
+*  No monotonic clock support yet.
+
 This library is intended to be an improvement on the Open Dylan `date` library
 for several reasons:
 
