@@ -127,13 +127,14 @@ The library API can be logically separated into several parts:
 
 ## References
 
-* https://tools.ietf.org/html/rfc2822#page-14
-* https://tools.ietf.org/html/rfc3339
-* https://tools.ietf.org/html/rfc5322#page-14
-* [This paper](http://howardhinnant.github.io/date_algorithms.html)
-* [This discussion](https://groups.google.com/g/julia-dev/c/YlriSMrVTVs/m/cgf7P8xXzB8J?pli=1)
-  from the julia-dev list is very enlightening about the distinctions between various time
-  concepts.
+* [RFC2822, Internet Message Format, Date and Time Specification](https://tools.ietf.org/html/rfc2822#page-14)
+* [RFC5322, Internet Message Format, Date and Time Specification](https://tools.ietf.org/html/rfc5322#page-14)
+* [RFC3339, Date and Time on the Internet: Timestamps](https://tools.ietf.org/html/rfc3339)
+* [chrono-Compatible Low-Level Date Algorithms](http://howardhinnant.github.io/date_algorithms.html)
+* [Discussion on julia-dev
+  group](https://groups.google.com/g/julia-dev/c/YlriSMrVTVs/m/cgf7P8xXzB8J?pli=1) is
+  very enlightening about the distinctions between various time concepts.
 * [This blog post](https://codeblog.jonskeet.uk/2010/12/01/the-joys-of-date-time-arithmetic/)
   on some of the oddities of date/time arithmetic.
 * [RFC 8536, TZif format](https://tools.ietf.org/html/rfc8536)
+* Calendrical Calculations -- The Ultimate Edition -- by Reingold and Dershowitz

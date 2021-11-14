@@ -96,7 +96,7 @@ define interface-specification-suite time-specification-suite ()
   sealed generic function local-time-zone () => (<zone>);
   sealed generic function zone-name (<zone>) => (<string>);
   sealed generic function zone-abbreviation (<zone>) => (<string>);
-  sealed generic function zone-offset (<zone>) => (<integer>);
+  sealed generic function zone-offset-seconds (<zone>) => (<integer>);
   sealed generic function zone-offset-string (<zone>) => (<string>);
   constant $utc :: <naive-zone>;
 end interface-specification-suite;

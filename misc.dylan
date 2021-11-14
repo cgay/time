@@ -21,14 +21,11 @@ define function time-error(msg :: <string>, #rest format-args)
   error(make(<time-error>,
              format-string: msg,
              format-arguments: format-args));
-end;
+end function;
 
+// --- Debugging ---
 
-// --- Macros ---
-
-define macro inc!
-  { inc! (?place:expression, ?dx:expression) }
-    => { ?place := ?place + ?dx; }
-  { inc! (?place:expression) }
-    => { ?place := ?place + 1; }
-end macro inc!;
+define function debug-out (fmt, #rest args)
+  apply(format-err, fmt, args);
+  force-err();
+end function;

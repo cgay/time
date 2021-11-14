@@ -277,11 +277,12 @@ define method make-time
                        + min * 60_000_000_000
                        + sec * 1_000_000_000
                        + nano);
-  // TODO: this call to zone-offset ends up calling time-now(). We shouldn't
-  // need to allocate an extra <time> to make a <time>. Make a %zone-offset
-  // that accepts days and nanos and a %time-now that returns them?
+  // TODO: this call to zone-offset-seconds ends up calling time-now(). We shouldn't need
+  // to allocate an extra <time> to make a <time>. Make a %zone-offset that accepts days
+  // and nanos and a %time-now that returns them?
   let (days, nanos)
-    = adjust-for-zone-offset(days, nanoseconds, zone-offset(zone) * $nanos/second);
+    = adjust-for-zone-offset(days, nanoseconds,
+                             zone-offset-seconds(zone) * $nanos/second);
   make(<time>,
        days: days,
        nanoseconds: nanos,
@@ -330,7 +331,7 @@ define method time-components
 
   // Adjust days and nanos for the zone offset. We negate it because we're
   // going from UTC to local.
-  let offset-nanos = -(zone-offset(zone | t.%zone, time: t) * $nanos/second);
+  let offset-nanos = -(zone-offset-seconds(zone | t.%zone, time: t) * $nanos/second);
   let (days, nanos) = adjust-for-zone-offset(t.%days, t.%nanoseconds, offset-nanos);
 
   let (year, month, day) = civil-from-days(days);

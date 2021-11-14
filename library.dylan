@@ -88,7 +88,7 @@ define module time
     zone-abbreviation,
     zone-daylight-savings?,
     zone-name,
-    zone-offset,
+    zone-offset-seconds,
     zone-offset-string,
     find-zone,
     local-time-zone,
@@ -102,13 +102,13 @@ define module %time
   use c-ffi;
   use common-dylan;
   use file-system,
-    import: { <file-locator>, do-directory, file-exists?, locator-name, resolve-locator,
+    import: { <file-locator>, do-directory, file-exists?,
               with-open-file };
   use format,
     import: { format, format-to-string };
   use format-out;
   use locators,
-    import: { <directory-locator>, <file-locator>, locator-name, resolve-locator };
+    import: { <directory-locator>, <file-locator>, locator-base, resolve-locator };
   use print,
     import: { print, print-object, printing-object, *print-escape?* };
   use standard-io,
@@ -129,8 +129,8 @@ define module %time
     <naive-zone>,
     <aware-zone>,
     <subzone>,
-    $min-offset,
-    $max-offset,
+    $min-offset-seconds,
+    $max-offset-seconds,
 
     // tzif
     bytes-to-int32,

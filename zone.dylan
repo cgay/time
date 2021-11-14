@@ -10,7 +10,7 @@ define generic local-time-zone () => (zone :: <zone>);
 // The UTC offset in seconds at time `time` in zone `zone`. For `<aware-zone>`
 // a time should be passed so the offset at that time may be determined. If
 // not provided, the current time is used instead.
-define sealed generic zone-offset
+define sealed generic zone-offset-seconds
     (zone :: <zone>, #key time) => (seconds :: <integer>);
 
 // Returns a string describing the offset in minutes from UTC for zone `zone`
@@ -37,13 +37,13 @@ define generic zone-daylight-savings?
 
 
 // RFC 8536 (TZif) min and max tz offset values, in seconds.
-define constant $min-offset = -25 * 60 * 60 + 1;
-define constant $max-offset =  26 * 60 * 60 - 1;
+define constant $min-offset-seconds = -25 * 60 * 60 + 1;
+define constant $max-offset-seconds =  26 * 60 * 60 - 1;
 
 define inline function check-offset (offset :: <integer>)
-  if (offset < $min-offset | offset > $max-offset)
+  if (offset < $min-offset-seconds | offset > $max-offset-seconds)
     time-error("Time zone offsets must be seconds in the range (%d, %d), got %=",
-               $min-offset, $max-offset, offset);
+               $min-offset-seconds, $max-offset-seconds, offset);
   end;
 end function;
 
@@ -52,19 +52,20 @@ end function;
 define class <subzone> (<object>)
   // This can probably just be a number of minutes or seconds. TODO
   constant slot subzone-start-time :: <time>, required-init-keyword: start-time:;
-  constant slot subzone-offset :: <integer>, required-init-keyword: offset:;
+  constant slot subzone-offset-seconds :: <integer>, required-init-keyword: offset-seconds:;
   constant slot subzone-abbrev :: <string>, required-init-keyword: abbrev:;
   constant slot subzone-dst? :: <boolean>, required-init-keyword: dst?:;
 end class;
 
-define method initialize (subzone :: <subzone>, #key offset :: <integer>)
-  check-offset(offset);
+define method initialize (subzone :: <subzone>, #key offset-seconds :: <integer>)
+  check-offset(offset-seconds);
 end method;
 
 define method print-object (s :: <subzone>, stream :: <stream>) => ()
   printing-object(s, stream)
-    format(stream, "start=%s offset=%d abbrev=%s dst?=%=",
-           s.subzone-start-time, s.subzone-offset, s.subzone-abbrev, s.subzone-dst?);
+    format(stream, "start=%s offset=%dsec abbrev=%s dst?=%=",
+           s.subzone-start-time, s.subzone-offset-seconds, s.subzone-abbrev,
+           s.subzone-dst?);
   end;
 end method;
 
@@ -100,14 +101,14 @@ define class <aware-zone> (<zone>)
 end class;
 
 define method initialize (zone :: <aware-zone>, #key subzones :: <vector>, #all-keys)
-  let prev-time = #f;
+  let time1 = #f;
   for (subzone in subzones)
     let start = subzone.subzone-start-time;
-    if (prev-time & prev-time <= start)
-      time-error("Subzone start time (%=) for %= is invalid; it should be older than"
-                   " the subzone that preceded it.", subzone, prev-time);
+    if (time1 & time1 <= start)
+      time-error("Subzone start time (%s) for %s is invalid; it should be older than"
+                   " the subzone that preceded it, %s.", start, subzone, time1);
     end;
-    prev-time := start;
+    time1 := start;
   end;
 end method;
 
@@ -153,16 +154,16 @@ define function zone-subzone
   end iterate
 end function;
 
-define method zone-offset
+define method zone-offset-seconds
     (zone :: <naive-zone>, #key time :: <time> = time-now())
  => (minutes :: <integer>)
   zone.%offset
 end method;
 
-define method zone-offset
+define method zone-offset-seconds
     (zone :: <aware-zone>, #key time :: <time> = time-now())
  => (minutes :: <integer>)
-  subzone-offset(zone-subzone(zone, time))
+  subzone-offset-seconds(zone-subzone(zone, time))
 end method;
 
 define method zone-abbreviation
@@ -207,7 +208,7 @@ end function;
 // method.
 define method zone-offset-string
     (zone :: <naive-zone>, #key time) => (offset :: <string>)
-  offset-to-string(zone-offset(zone));
+  offset-to-string(zone-offset-seconds(zone));
 end method;
 
 // Returns the zone offset string in the form "+hh:mm" or "-hh:mm" where 'hh'
@@ -216,7 +217,7 @@ end method;
 define method zone-offset-string
     (zone :: <aware-zone>, #key time :: <time>?)
  => (offset :: <string>)
-  offset-to-string(zone-offset(zone, time: time | time-now()))
+  offset-to-string(zone-offset-seconds(zone, time: time | time-now()))
 end method;
 
 define constant $zones-by-long-name :: <string-table> = make(<string-table>);

@@ -92,7 +92,7 @@ define function find-zone-from-systemd-link
   let filename = concatenate(root-directory, "etc/localtime");
   if (file-exists?(filename))
     let real-path = resolve-locator(as(<file-locator>, filename));
-    let tzname = locator-name(real-path);
+    let tzname = locator-base(real-path);
     find-zone(tzname)
   end
 end function;

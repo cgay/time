@@ -180,7 +180,7 @@ define method format-zone-offset
     (stream :: <stream>, zone :: <naive-zone>,
      #key colon? :: <boolean>, utc-name :: <string>?)
  => ()
-  let offset = zone-offset(zone);
+  let offset = zone-offset-seconds(zone);
   if (offset = 0 & utc-name)
     write(stream, utc-name);
   else
