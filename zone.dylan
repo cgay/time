@@ -63,9 +63,9 @@ end method;
 
 define method print-object (s :: <subzone>, stream :: <stream>) => ()
   printing-object(s, stream)
-    format(stream, "start=%s offset=%dsec abbrev=%s dst?=%=",
-           s.subzone-start-time, s.subzone-offset-seconds, s.subzone-abbrev,
-           s.subzone-dst?);
+    format(stream, "%s o=%d dst=%= %s...",
+           s.subzone-abbrev, s.subzone-offset-seconds, s.subzone-dst?,
+           s.subzone-start-time);
   end;
 end method;
 

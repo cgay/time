@@ -185,14 +185,14 @@ define function parse-v1-zone
     let transition-time = bytes-to-int32(data, trans-time-start + (i * time-size), "transition time");
     let local-time-type-index = data[trans-type-start + i];
     let utc-offset-seconds = local-offsets[local-time-type-index];
-    let (days, seconds) = truncate/(transition-time, 86400);
+    let (days, seconds) = floor/(transition-time, 86400);
     let time = make(<time>, days: days, nanoseconds: abs(seconds) * 1_000_000_000);
     let subzone = make(<subzone>,
                        start-time: time,
                        offset-seconds: local-offsets[local-time-type-index],
                        abbrev: local-abbrevs[local-time-type-index],
                        dst?: local-dsts[local-time-type-index]);
-    debug-out("\ntime = %s and %=\n", time, time);
+    //debug-out("time = %s and %=\n", time, time);
     debug-out("subzone = %=\n", subzone);
     add!(subzones, subzone);
   end for;
@@ -239,8 +239,8 @@ define function bytes-to-int32 (bytes, start, id) => (i :: <integer>)
                    ash(bytes[start + 2], 8),
                    bytes[start + 3])
           end;
-  debug-out("start=%d, %d %d %d %d => %d (%s)\n",
-            start, bytes[start], bytes[start + 1], bytes[start + 2], bytes[start + 3], v, id);
+//  debug-out("\nstart=%d, %d %d %d %d => %d (%s)\n",
+//            start, bytes[start], bytes[start + 1], bytes[start + 2], bytes[start + 3], v, id);
   v
 end function;
 
