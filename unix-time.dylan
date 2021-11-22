@@ -20,6 +20,8 @@ define c-struct <timespec>
   pointer-type-name: <timespec*>;
 end;
 
+// Note that Unix time does not include leap seconds and that will matter when we convert
+// to y/d/m/h/m/s.
 define c-function clock-gettime
   parameter clock-id :: <c-clock-id-t>;
   parameter timespec :: <timespec*>;

@@ -18,11 +18,11 @@ define constant $components-test-cases
          list(list(2020, $october, 18, 0, 0, 0, 0, $utc, $monday),
               list(18553, 0)));
 
-define test test-make-time ()
+define test test-compose-time ()
   for (tc in $components-test-cases)
     let (args, want) = apply(values, tc);
     let args = copy-sequence(args, end: args.size - 1); // remove the day
-    let t = apply(make-time, args);
+    let t = apply(compose-time, args);
     let (want-days, want-nanos) = apply(values, want);
     assert-equal(t.%days, want-days,
                  format-to-string("for %= got days %=, want %=",
@@ -73,7 +73,7 @@ define test test-time-= ()
   // regardless of zone.
   assert-equal(make(<time>, days: 1, nanoseconds: 1, zone: $utc),
                make(<time>, days: 1, nanoseconds: 1,
-                    zone: make(<naive-zone>, name: "x", offset: 5 * 60 * 60)));
+                    zone: make(<naive-zone>, name: "x", offset-seconds: 5 * 60 * 60)));
 end test;
 
 define test test-time-< ()

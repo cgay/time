@@ -60,7 +60,7 @@ The `time` library exports a single module, `time` which exports these classes:
 The library API can be logically separated into several parts:
 
 * Constructors - `<time>` objects are usually created by calling `time-now`,
-  `parse-time`, or by constructing one from components with `make-time(year,
+  `parse-time`, or by constructing one from components with `compose-time(year,
   month, day, ...)`. It is also fine to call `make(<time>)` directly.
 
 * Accessors - for example to extract the number of seconds from a time or the
@@ -117,13 +117,10 @@ The library API can be logically separated into several parts:
 *  i18n - ensure that if someone wanted to they could make the days,
    months, and date formats display/parse in non-English languages.
 
-*  Use the dylan primitive C interface instead of C-FFI to reduce library size.
-
-   ```shell
-   $ size libc-ffi.so
-   text     data     bss   dec      hex       filename
-   353317   102353     1   455671   0x6f3f7   libc-ffi.so
-   ```
+* The JavaScript Luxon library has some good API
+  ideas. https://moment.github.io/luxon/#/tour In particular it would be nice to support
+  intervals (time ranges), and the ISO duration format etc. It also has a nice discussion
+  of time zones and some do's and don'ts.
 
 ## References
 
@@ -138,3 +135,5 @@ The library API can be logically separated into several parts:
   on some of the oddities of date/time arithmetic.
 * [RFC 8536, TZif format](https://tools.ietf.org/html/rfc8536)
 * Calendrical Calculations -- The Ultimate Edition -- by Reingold and Dershowitz
+* https://stackoverflow.com/questions/11188621/how-can-i-convert-seconds-since-the-epoch-to-hours-minutes-seconds-in-java/11197532#11197532
+* https://stackoverflow.com/questions/7960318/math-to-convert-seconds-since-1970-into-date-and-vice-versa

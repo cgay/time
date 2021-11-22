@@ -62,9 +62,9 @@ define module time
     $august, $september, $october, $november, $december,
 
     // Conversions
-    make-time,                  // from its components
+    compose-time,               // make a <time> from its components
+    time-components,            // break a <time> into its components
     time-in-zone,
-    time-components,
     parse-time,                 // TODO: $iso-8601-format etc?
     parse-duration,
     parse-day,                  // TODO: not sure about this

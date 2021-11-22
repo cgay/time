@@ -9,19 +9,24 @@ define class <time> (<object>)
   constant slot %days :: <integer> = 0, init-keyword: days:;
 
   // Number of nanoseconds within the day. May be positive or negative.
-  // TODO(cgay): TBH I'm not 100% sure if this can be negative. Double check.
-  //    Might need to adjust $minimum-time if so.
+  // TODO: TBH I'm not 100% sure if this can be negative. Double check,
+  // and write up a detailed comment here about the semantics of this class.
   constant slot %nanoseconds :: <integer> = 0, init-keyword: nanoseconds:;
 
-  // Time zone to use when displaying this time. This is for convenience, so
-  // that it isn't necessary to pass a zone whenever displaying the time.
+  // Time zone to use when displaying this time. This is for convenience, so that it
+  // isn't necessary to pass a zone whenever displaying the time.
+
+  // TODO: For less allocationConsider removing this slot and either (a) always pass a zone when displaying
+  // the time, or (b) using a subclass to encode a time in a specific location. Could be
+  // a superclass called, say, <moment>?
   constant slot %zone :: <zone> = $utc, init-keyword: zone:;
 end class;
 
 define method print-object (time :: <time>, stream :: <stream>) => ()
   if (*print-escape?*)
     printing-object (time, stream)
-      format(stream, "%dd %dns", time.%days, time.%nanoseconds);
+      let offset = zone-offset-string(time.%zone, time: time);
+      format(stream, "%dd %dns %s", time.%days, time.%nanoseconds, offset);
     end;
   else
     format-time(stream, $rfc3339, time);
@@ -33,14 +38,22 @@ define constant $epoch :: <time>
 
 define sealed generic time-year         (t :: <time>) => (year :: <integer>);  // 1-...
 define sealed generic time-month        (t :: <time>) => (month :: <month>);
-//             time-day-of-year?
+// TODO: time-day-of-year
 define sealed generic time-day-of-month (t :: <time>) => (day :: <integer>);   // 1-31
 define sealed generic time-day-of-week  (t :: <time>) => (day :: <day>);
 define sealed generic time-hour         (t :: <time>) => (hour :: <integer>);  // 0-23
 define sealed generic time-minute       (t :: <time>) => (minute :: <integer>); // 0-59
 define sealed generic time-second       (t :: <time>) => (second :: <integer>); // 0-60
+// TODO: time-millisecond
+// TODO: time-microsecond
 define sealed generic time-nanosecond   (t :: <time>) => (nanosecond :: <integer>);
 define sealed generic time-zone         (t :: <time>) => (zone :: <zone>);
+
+// TODO: as-unix-time (not sure of name yet)
+
+// TODO: For applications that find themselves allocating a lot of `<time>` objects
+// (e.g., logging?), provide an API that allows them to be reinitialized from the current
+// time or from another `<time>` without any additional allocation.
 
 // Returns the current time. If `zone` is supplied then it is associated with
 // the returned time and used for display purposes.
@@ -55,7 +68,7 @@ define sealed generic time-components
      nanosecond :: <integer>, zone :: <zone>, day-of-week :: <day>);
 
 // Create a time from the given components.
-define sealed generic make-time
+define sealed generic compose-time
     (year :: <integer>, month :: <month>, day :: <integer>,
      hour :: <integer>, minute :: <integer>, second :: <integer>,
      nanosecond :: <integer>, zone :: <zone>)
@@ -237,18 +250,30 @@ end method;
 
 // --- Building/decomposing times ---
 
-// Returns number of days since civil 1970-01-01.  Negative values indicate
-// days prior to 1970-01-01. This directly follows the definition of
-// days_from_civil in http://howardhinnant.github.io/date_algorithms.html.
-define /* inline */ function days-from-civil
+// The calendrical code here directly follows
+// http://howardhinnant.github.io/date_algorithms.html, which you will need to read to
+// understand the code. One oddity is the (completely internal to the algorithms) use of
+// March 1 as the beginning of the year, which gives the nice property that leap days
+// come at the end of the year and therefore need not affect various other
+// calculations. A 400 year "era" is useful since the Gregorian calendar repeats itself
+// every 400 years.
+
+define constant $days/era = 146097;   // days per 400-year era
+define constant $epoch-days = 719468; // days between 0000-03-01 and 1970-01-01
+
+// Given year, month, and day, return the number of days since Gregorian 1970-01-01.
+// Negative values indicate days prior to 1970-01-01.
+define function days-from-civil
     (y :: <integer>, m :: <integer>, d :: <integer>) => (days :: <integer>)
-  let y = y - if (m <= 2) 1 else 0 end;
+  let y = y - if (m <= 2) 1 else 0 end; // year begins March 1 for leap year convenience
   let era = floor/(if (y >= 0) y else y - 399 end, 400);
   let yoe = y - era * 400;                                         // [0, 399]
-  let doy = floor/(153 * (m + (m > 2 & -3 | 9)) + 2, 5) + (d - 1); // [0, 365]
+  // TODO: vector lookup probably faster: v[m] + d - 1
+  // See "month, m', days after m'-01" table in blog.
+  let doy = floor/(153 * iff(m > 2, m - 3, m + 9) + 2, 5) + d - 1; // [0, 365]
   let doe = yoe * 365 + floor/(yoe, 4) - floor/(yoe, 100) + doy;   // [0, 146096]
-  era * 146097 + doe - 719468
-end;
+  era * $days/era + doe - $epoch-days
+end function;
 
 // Adjust `days` and `nanoseconds` to UTC time by subtracting `offset-nanos`,
 // which could cross a day boundary. To adjust UTC to local pass the negated
@@ -268,7 +293,7 @@ define inline function adjust-for-zone-offset
   values(days, nanos)
 end function;
 
-define method make-time
+define method compose-time
     (y :: <integer>, mon :: <month>, d :: <integer>, h :: <integer>,
      min :: <integer>, sec :: <integer>, nano :: <integer>, zone :: <zone>)
  => (_ :: <time>)
@@ -294,19 +319,19 @@ define method time-in-zone
   make(<time>, days: t.%days, nanoseconds: t.%nanoseconds, zone: zone)
 end method;
 
-// Returns year/month/day triple in civil calendar.  This directly follows the
-// definition of civil_from_days in http://howardhinnant.github.io/date_algorithms.html.
-define /* inline */ function civil-from-days
-    (z :: <integer>) => (year :: <integer>, month :: <integer>, day :: <integer>)
-  let z = z + 719468;
-  let era = floor/(if (z >= 0) z else z - 146096 end, 146097);
-  let doe = z - era * 146097;   // [0, 146096]
-  let yoe = floor/(doe
-                     - floor/(doe, 1460)
-                     - floor/(doe, 36524)
-                     - floor/(doe, 146096),
+// Given a number of days relative to the epoch, either positive or negative, returns the
+// year, month, and day in the Gregorian calendar.
+define function civil-from-days
+    (days :: <integer>) => (year :: <integer>, month :: <integer>, day :: <integer>)
+  let z = days + $epoch-days;
+  // era = "which 400-year span is `days` in?"
+  let era = floor/(if (z >= 0) z else z - 146096 end,
+                   $days/era);
+  let doe = z - era * $days/era;
+  let yoe = floor/(doe - floor/(doe, 1460) - floor/(doe, 36524) - floor/(doe, 146096),
                    365);
   let y = yoe + era * 400;
+  // const unsigned doy = doe - (365*yoe + yoe/4 - yoe/100);
   let doy = doe - (yoe * 365 + floor/(yoe, 4) - floor/(yoe, 100));
   let mp = floor/(doy * 5 + 2, 153);
   let d = doy - floor/(mp * 153 + 2, 5) + 1;

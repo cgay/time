@@ -29,3 +29,15 @@ define function debug-out (fmt, #rest args)
   apply(format-err, fmt, args);
   force-err();
 end function;
+
+// --- Macros ---
+
+define macro iff
+    { iff(?test:expression, ?true:expression, ?false:expression) }
+ => { if (?test) ?true else ?false end }
+
+    { iff(?test:expression, ?true:expression) }
+ => { if (?test) ?true end }
+end;
+
+

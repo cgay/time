@@ -76,18 +76,18 @@ end class;
 // Naive zones have a constant offset from UTC and constant abbreviation over
 // time.
 define class <naive-zone> (<zone>)
-  constant slot %offset :: <integer>, required-init-keyword: offset:;
+  constant slot %offset-seconds :: <integer>, required-init-keyword: offset-seconds:;
   constant slot %abbreviation :: <string>?, init-keyword: abbreviation:;
 end class;
 
-define method initialize (zone :: <naive-zone>, #key offset :: <integer>)
-  check-offset(offset);
+define method initialize (zone :: <naive-zone>, #key offset-seconds :: <integer>)
+  check-offset(offset-seconds);
 end method;
 
 define method print-object (zone :: <naive-zone>, stream :: <stream>) => ()
   printing-object(zone, stream)
-    format(stream, "%= (%s) offset=%d",
-           zone.zone-name, zone.%abbreviation, zone.%offset);
+    format(stream, "%= (%s) %s",
+           zone.zone-name, zone.%abbreviation, zone-offset-string(zone));
   end;
 end method;
 
@@ -122,7 +122,7 @@ define constant $utc :: <naive-zone>
   = make(<naive-zone>,
          name: "Coordinated Universal Time",
          abbreviation: "UTC",
-         offset: 0);
+         offset-seconds: 0);
 
 define variable *local-time-zone* :: <zone>? = #f;
 
@@ -155,9 +155,8 @@ define function zone-subzone
 end function;
 
 define method zone-offset-seconds
-    (zone :: <naive-zone>, #key time :: <time> = time-now())
- => (minutes :: <integer>)
-  zone.%offset
+    (zone :: <naive-zone>, #key time) => (minutes :: <integer>)
+  zone.%offset-seconds
 end method;
 
 define method zone-offset-seconds
@@ -215,8 +214,7 @@ end method;
 // and 'mm' are hours and minutes. If `time` is supplied then the offset at
 // that time is used, otherwise the offset at the current time is used.
 define method zone-offset-string
-    (zone :: <aware-zone>, #key time :: <time>?)
- => (offset :: <string>)
+    (zone :: <aware-zone>, #key time :: <time>?) => (offset :: <string>)
   offset-to-string(zone-offset-seconds(zone, time: time | time-now()))
 end method;
 

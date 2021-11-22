@@ -4,7 +4,7 @@ define interface-specification-suite time-specification-suite ()
   // Time
   sealed instantiable class <time> (<object>);
   function time-now(#"key", #"zone") => (<time>);
-  sealed generic function make-time
+  sealed generic function compose-time
       (<integer>, <month>, <integer>, <integer>, <integer>, <integer>, <integer>, <zone>)
    => (<time>);
   sealed generic function time-components
@@ -123,7 +123,7 @@ end method;
 define sideways method make-test-instance (class == <naive-zone>) => (zone :: <naive-zone>)
   make(<naive-zone>,
        name: "make-test-instance(<naive-zone>)",
-       offset: -1);
+       offset-seconds: -1);
 end method;
 
 define sideways method make-test-instance (class == <aware-zone>) => (zone :: <aware-zone>)
@@ -131,7 +131,7 @@ define sideways method make-test-instance (class == <aware-zone>) => (zone :: <a
        name: "make-test-instance(<aware-zone>)",
        subzones: vector(make(<subzone>,
                              start-time: $epoch,
-                             offset: 60 * 60,
+                             offset-seconds: 60 * 60,
                              abbrev: "x",
                              dst?: #t)))
 end method;
