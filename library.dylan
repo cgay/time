@@ -1,10 +1,12 @@
 Module: dylan-user
 
 define library time
+  use big-integers;
   use collections,
     import: { table-extensions };
   use common-dylan;
   use c-ffi;
+  use generic-arithmetic;
   use io,
     import: { format, format-out, print, pprint, standard-io, streams };
   use strings;
@@ -34,6 +36,8 @@ define module time
       time-zone,
       time-day-of-week,
     $epoch,
+    $minimum-time,
+    $maximum-time,
 
     format-time,
     $rfc3339,                   // minimum digits for fractional seconds
@@ -107,6 +111,8 @@ define module %time
   use format,
     import: { format, format-to-string };
   use format-out;
+  use generic-arithmetic,
+    prefix: "ga/";
   use locators,
     import: { <directory-locator>, <file-locator>, locator-base, resolve-locator };
   use print,
@@ -129,11 +135,25 @@ define module %time
     <naive-zone>,
     <aware-zone>,
     <subzone>,
+    subzones,
+    subzone-start-time,
+    dump-zone,
     $min-offset-seconds,
     $max-offset-seconds,
 
     // tzif
+    <tzif>,
     bytes-to-int32,
     bytes-to-int64,
-    load-tzif-file;
+    load-tzif-file,
+    load-zone,
+    tzif-version,
+    tzif-end-of-v1-data,
+    tzif-end-of-v2-data,
+    tzif-is-utc-count,
+    tzif-is-std-count,
+    tzif-leap-count,
+    tzif-time-count,
+    tzif-type-count,
+    tzif-char-count;
 end module %time;

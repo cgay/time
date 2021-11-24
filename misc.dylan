@@ -30,6 +30,8 @@ define function debug-out (fmt, #rest args)
   force-err();
 end function;
 
+ignorable(debug-out);
+
 // --- Macros ---
 
 define macro iff

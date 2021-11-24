@@ -3,24 +3,30 @@ Synopsis: Time and duration implementations (because they're somewhat intertwine
 
 // --- <time> and its generic functions ---
 
+
 // A <time> represents an instant in UTC time, to nanosecond precision.
-define class <time> (<object>)
+//
+// TODO: at some point might want to consider making it possible to create a <time>
+// without a zone slot, and with the ability to update to current time, for efficiency
+// in cases where a lot of time objects are created, like perhaps logging.
+define sealed primary class <time> (<object>)
   // Number of days since the epoch. May be positive or negative.
   constant slot %days :: <integer> = 0, init-keyword: days:;
 
-  // Number of nanoseconds within the day. May be positive or negative.
-  // TODO: TBH I'm not 100% sure if this can be negative. Double check,
-  // and write up a detailed comment here about the semantics of this class.
+  // Number of nanoseconds within the day. An integer between 0 and $day - 1.
   constant slot %nanoseconds :: <integer> = 0, init-keyword: nanoseconds:;
 
   // Time zone to use when displaying this time. This is for convenience, so that it
   // isn't necessary to pass a zone whenever displaying the time.
-
-  // TODO: For less allocationConsider removing this slot and either (a) always pass a zone when displaying
-  // the time, or (b) using a subclass to encode a time in a specific location. Could be
-  // a superclass called, say, <moment>?
   constant slot %zone :: <zone> = $utc, init-keyword: zone:;
 end class;
+
+define method make (class == <time>, #rest args, #key nanoseconds) => (t :: <time>)
+  apply(next-method, class, nanoseconds: iff(instance?(nanoseconds, <duration>),
+                                             duration-nanoseconds(nanoseconds),
+                                             nanoseconds),
+        args)
+end method;
 
 define method print-object (time :: <time>, stream :: <stream>) => ()
   if (*print-escape?*)
@@ -149,7 +155,7 @@ define sealed domain \/ (<duration>, <real>);
 define sealed domain \= (<time>, <time>);
 define sealed domain \= (<duration>, <duration>);
 define sealed domain \< (<time>, <time>);
-
+// TODO: <duration> < <integer> maybe?
 
 // =
 
@@ -506,7 +512,7 @@ define sealed generic month-long-name (m :: <month>) => (n :: <string>);
 // capital letter. "Jan", "Feb", etc.
 define sealed generic month-short-name (m :: <month>) => (n :: <string>);
 
-// month-days returns the standard (non-leap year) dayays in the month.
+// month-days returns the standard (non-leap year) days in the month.
 // January = 31, February = 28, etc.
 define sealed generic month-days (m :: <month>) => (n :: <integer>);
 
@@ -600,3 +606,9 @@ define table $short-name-to-month :: <string-table> = {
   $november.month-short-name => $november,
   $december.month-short-name => $december
 };
+
+define constant $minimum-time :: <time>
+  = make(<time>, days: $minimum-integer, nanoseconds: 0, zone: $utc);
+
+define constant $maximum-time :: <time>
+  = make(<time>, days: $maximum-integer, nanoseconds: $day - $nanosecond, zone: $utc);

@@ -95,26 +95,39 @@ end method;
 define class <aware-zone> (<zone>)
   // The events describing how this zone differed from UTC over different time
   // periods, ordered newest first because the common case is assumed to be
-  // asking about the current time.
+  // asking about recent times.
   constant slot subzones :: <vector>, // of <subzone>
     required-init-keyword: subzones:;
 end class;
 
 define method initialize (zone :: <aware-zone>, #key subzones :: <vector>, #all-keys)
-  let time1 = #f;
+  // If you remove this check, also update zone-subzones, which assumes at least one
+  // subzone.
+  if (empty?(subzones))
+    time-error("aware time zones must have at least one subzone");
+  end;
+  let prev-start-time = #f;
   for (subzone in subzones)
-    let start = subzone.subzone-start-time;
-    if (time1 & time1 <= start)
-      time-error("Subzone start time (%s) for %s is invalid; it should be older than"
-                   " the subzone that preceded it, %s.", start, subzone, time1);
+    let start-time = subzone.subzone-start-time;
+    if (prev-start-time & prev-start-time <= start-time)
+      time-error("Subzone start time (%s) for %s is invalid; it must be older than"
+                   " the subzone that preceded it, %s.",
+                 start-time, subzone, prev-start-time);
     end;
-    time1 := start;
+    prev-start-time := start-time;
   end;
 end method;
 
 define method print-object (zone :: <aware-zone>, stream :: <stream>) => ()
   printing-object(zone, stream)
     format(stream, "%s, %d subzones", zone.zone-name, zone.subzones.size);
+  end;
+end method;
+
+define method dump-zone (zone :: <aware-zone>) => ()
+  format-out("%s\n", zone);
+  for (sub in zone.subzones)
+    format-out("%s\n", sub);
   end;
 end method;
 
@@ -140,6 +153,7 @@ define function zone-subzone
     (zone :: <aware-zone>, time :: <time>) => (_ :: <subzone>)
   let subs = zone.subzones;
   let len :: <integer> = subs.size;
+  // Subzones are in order with newest transition first.
   iterate loop (i :: <integer> = 0)
     if (i < len)
       let subzone :: <subzone> = subs[i];
@@ -149,7 +163,14 @@ define function zone-subzone
         loop(i + 1)
       end
     else
-      time-error("time zone %s has no data for time %=", time);
+      // We effectively extend the oldest subzone infinitely into the past.
+      // This is consistent with this text from the tzfile man page:
+      //   "Also, if there is at least one transition, time type 0 is associated with the
+      //   time period from the indefinite past up to but not including the earliest
+      //   transition time."
+      // We assume `initialize(<aware-zone>)` requires at least one zone, which may change
+      // once I implement the version 2+ TZif footer record.
+      subs[subs.size - 1]
     end
   end iterate
 end function;
