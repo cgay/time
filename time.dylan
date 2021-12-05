@@ -7,26 +7,19 @@ Synopsis: Time and duration implementations (because they're somewhat intertwine
 // A <time> represents an instant in UTC time, to nanosecond precision.
 //
 // TODO: at some point might want to consider making it possible to create a <time>
-// without a zone slot, and with the ability to update to current time, for efficiency
+// without a zone slot, or the ability to update to current time, for efficiency
 // in cases where a lot of time objects are created, like perhaps logging.
 define sealed primary class <time> (<object>)
   // Number of days since the epoch. May be positive or negative.
-  constant slot %days :: <integer> = 0, init-keyword: days:;
+  constant slot %days :: <integer>, required-init-keyword: days:;
 
-  // Number of nanoseconds within the day. An integer between 0 and $day - 1.
-  constant slot %nanoseconds :: <integer> = 0, init-keyword: nanoseconds:;
+  // Number of nanoseconds within the day. An non-negative integer.
+  constant slot %nanoseconds :: <integer>, required-init-keyword: nanoseconds:;
 
   // Time zone to use when displaying this time. This is for convenience, so that it
   // isn't necessary to pass a zone whenever displaying the time.
   constant slot %zone :: <zone> = $utc, init-keyword: zone:;
 end class;
-
-define method make (class == <time>, #rest args, #key nanoseconds) => (t :: <time>)
-  apply(next-method, class, nanoseconds: iff(instance?(nanoseconds, <duration>),
-                                             duration-nanoseconds(nanoseconds),
-                                             nanoseconds),
-        args)
-end method;
 
 define method print-object (time :: <time>, stream :: <stream>) => ()
   if (*print-escape?*)
@@ -148,6 +141,7 @@ define sealed domain \+ (<duration>, <time>);
 define sealed domain \- (<time>, <time>);
 define sealed domain \- (<time>, <duration>);
 define sealed domain \- (<duration>, <duration>);
+// TODO: <duration> - <integer> => ???
 define sealed domain \* (<duration>, <real>);
 define sealed domain \* (<real>, <duration>);
 define sealed domain \/ (<duration>, <real>);
@@ -576,7 +570,7 @@ define method as (class == <month>, name :: <string>) => (m :: <month>)
   end
   | time-error("%= does not designate a valid month", name)
 end;
-                            
+
 define table $name-to-month :: <string-table> = {
   $january.month-long-name => $january,
   $february.month-long-name => $february,
@@ -610,5 +604,9 @@ define table $short-name-to-month :: <string-table> = {
 define constant $minimum-time :: <time>
   = make(<time>, days: $minimum-integer, nanoseconds: 0, zone: $utc);
 
+// TODO: this may not be exactly right, considering leap seconds.
 define constant $maximum-time :: <time>
-  = make(<time>, days: $maximum-integer, nanoseconds: $day - $nanosecond, zone: $utc);
+  = make(<time>,
+         days: $maximum-integer,
+         nanoseconds: duration-nanoseconds($day - $nanosecond),
+         zone: $utc);

@@ -106,13 +106,15 @@ ignore(time-specification-suite);
 
 // Tell testworks how to make instances of classes that require init keywords.
 
-define sideways method make-test-instance (class == <day>) => (day :: <day>)
+define sideways method make-test-instance
+    (class == <day>) => (day :: <day>)
   make(<day>,
        long-name: "Today",
        short-name: "2day")
 end method;
 
-define sideways method make-test-instance (class == <month>) => (month :: <month>)
+define sideways method make-test-instance
+    (class == <month>) => (month :: <month>)
   make(<month>,
        long-name: "Month",
        short-name: "Mes",
@@ -120,13 +122,15 @@ define sideways method make-test-instance (class == <month>) => (month :: <month
        days: 31)
 end method;
 
-define sideways method make-test-instance (class == <naive-zone>) => (zone :: <naive-zone>)
+define sideways method make-test-instance
+    (class == <naive-zone>) => (zone :: <naive-zone>)
   make(<naive-zone>,
        name: "make-test-instance(<naive-zone>)",
        offset-seconds: -1);
 end method;
 
-define sideways method make-test-instance (class == <aware-zone>) => (zone :: <aware-zone>)
+define sideways method make-test-instance
+    (class == <aware-zone>) => (zone :: <aware-zone>)
   make(<aware-zone>,
        name: "make-test-instance(<aware-zone>)",
        subzones: vector(make(<subzone>,
@@ -134,4 +138,9 @@ define sideways method make-test-instance (class == <aware-zone>) => (zone :: <a
                              offset-seconds: 60 * 60,
                              abbrev: "x",
                              dst?: #t)))
+end method;
+
+define sideways method make-test-instance
+    (class == <time>) => (time :: <time>)
+  make(<time>, days: 0, nanoseconds: 0)
 end method;
