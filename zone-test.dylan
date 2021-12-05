@@ -29,9 +29,6 @@ define test test-aware-zone-offsets ()
                                    subzone($epoch + $hour, 90, "EST", #t),
                                    subzone($epoch, 80, "EST", #t)));
 
-  // There is no zone info for times before the epoch.
-  assert-signals(<time-error>, zone-offset-seconds(zone, time: $epoch - $nanosecond));
-
   assert-equal(80, zone-offset-seconds(zone, time: $epoch + $minute));
   assert-equal(90, zone-offset-seconds(zone, time: $epoch + 2 * $hour));
   assert-equal(100, zone-offset-seconds(zone, time: now));
