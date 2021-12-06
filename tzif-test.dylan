@@ -217,7 +217,6 @@ define test test-load-tzif-file ()
     end;
   end;
   let zone = load-tzif-file(path);
-  dump-zone(zone);
   assert-equal("HKT", zone.zone-abbreviation);
   // TODO: more validation
 end test;
