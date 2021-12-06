@@ -245,6 +245,7 @@ define function parse-tzif-data-block
                        dst?: local-dsts[local-time-type-index]);
     add!(subzones, subzone);
   end for;
+  parse-footer(subzones, data, tzif.tzif-end-of-v2-data, data.size);
   make(<aware-zone>,
        name: tzif.tzif-zone-name,
        subzones: reverse!(subzones))
@@ -325,4 +326,13 @@ define not-inline function parse-string (bytes, bpos, epos) => (_ :: <string>?, 
       loop(i + 1)
     end
   end
+end function;
+
+// Parse the version 2 and 3 footer, which gives a rule for computing local time changes
+// after the last transition time. The rule is specified here:
+// https://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap08.html
+define function parse-footer (subzones, bytes, bpos, epos) => ()
+  // TODO: parse the footer. Looks somewhat involved so I'll put it off until more basic
+  // features that allow replacing the current date library are done. Probably not going
+  // to be able to just add subzones since times can be billions of years in the future.
 end function;
