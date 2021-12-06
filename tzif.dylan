@@ -199,19 +199,6 @@ define function parse-tzif-data-block
 
   // TODO: read the leap second records.
 
-/*
-   The type corresponding to a transition time specifies local time for
-   timestamps starting at the given transition time and continuing up
-   to, but not including, the next transition time.  Local time for
-   timestamps before the first transition is specified by the first time
-   type (time type 0).  Local time for timestamps on or after the last
-   transition is specified by the TZ string in the footer (Section 3.3)
-   if present and nonempty; otherwise, it is unspecified.  If there are
-   no transitions, local time for all timestamps is specified by the TZ
-   string in the footer if present and nonempty; otherwise, it is
-   specified by time type 0.
-*/
-
   let subzones = make(<stretchy-vector>);
 
   // Times before the first subzone are determined by the first local time type record.
