@@ -114,7 +114,8 @@ define module %time
   use generic-arithmetic,
     prefix: "ga/";
   use locators,
-    import: { <directory-locator>, <file-locator>, locator-base, resolve-locator };
+    import: { <directory-locator>, <file-locator>, locator-base, merge-locators,
+              resolve-locator, subdirectory-locator };
   use print,
     import: { print, print-object, printing-object, *print-escape?* };
   use standard-io,
@@ -147,6 +148,7 @@ define module %time
     bytes-to-int64,
     load-tzif-file,
     load-zone,
+    load-all-zones,
     tzif-version,
     tzif-end-of-v1-data,
     tzif-end-of-v2-data,

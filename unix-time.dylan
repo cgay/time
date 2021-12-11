@@ -108,7 +108,7 @@ end function;
 // --- Loading zones ---
 
 // This is the per-platform entry point to load zone data from the file system.
-define function load-zone-data
+define function load-all-zones
     () => (zones :: <sequence>)
   load-tzif-zone-data(as(<directory-locator>, "/usr/share/zoneinfo"))
 end function;

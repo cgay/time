@@ -221,6 +221,10 @@ define test test-load-tzif-file ()
   // TODO: more validation
 end test;
 
+define test test-load-zone-data ()
+  assert-no-errors(load-all-zones());
+end;
+
 define test test-bytes-to-int32 ()
   assert-equal(0, bytes-to-int32(#[0, 0, 0, 0], 0, "test"));
   assert-equal(1, bytes-to-int32(#[0, 0, 0, 1], 0, "test"));

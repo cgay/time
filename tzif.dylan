@@ -13,6 +13,8 @@ Synopsis: Read TZif (RFC 8536) file format
 
 define class <tzif-error> (<time-error>) end;
 
+define class <not-tzif-format-error> (<tzif-error>) end;
+
 define function tzif-error (format-string, #rest format-arguments)
   signal(make(<tzif-error>,
               format-string: format-string,
@@ -57,19 +59,42 @@ define method print-object (t :: <tzif>, stream :: <stream>) => ()
   end;
 end method;
 
+// Load all TZif format files in `root-directory`.
 define function load-tzif-zone-data
     (root-directory :: <directory-locator>) => (zones :: <sequence>)
   let zones = make(<stretchy-vector>);
   local
     method load-one (directory, filename, type)
-      if (type = #"file" | type = #"link")
-        let zone
-          = load-tzif-file(make(<file-locator>, directory: root-directory, name: filename));
-        if (zone)
-          // TODO: ensure that we don't have two zones with the same name
-          add!(zones, zone)
-        end;
-      end;
+      select (type)
+        #"file", #"link" =>
+          let locator = if (type = #"link")
+                          merge-locators(as(<file-locator>, filename),
+                                         as(<directory-locator>, directory))
+                        else
+                          make(<file-locator>, directory: directory, name: filename)
+                        end;
+          debug-out("%s\n", locator);
+          let zone = block ()
+                       load-tzif-file(locator);
+                     exception (<not-tzif-format-error>)
+                       debug-out("ignoring non-TZif file %s\n", locator);
+                       #f
+                     // exception (err :: <error>)
+                     //   debug-out("error: %s\n", err);
+                     //   #f
+                     end;
+          if (zone)
+            debug-out("loaded zone %s from %s\n", zone, locator);
+            // TODO: ensure that we don't have two zones with the same name
+            add!(zones, zone)
+          end;
+        #"directory" =>
+          if (filename ~= "." & filename ~= "..")
+            do-directory(load-one,
+                         subdirectory-locator(as(<directory-locator>, directory),
+                                              filename));
+          end;
+      end select;
     end method;
   do-directory(load-one, root-directory);
   zones
@@ -109,8 +134,9 @@ define function parse-header
     (tzif :: <tzif>, start :: <integer>, version :: <integer>)
   let data :: <byte-vector> = tzif.tzif-data;
   if (~tzif?(data, start))
-    tzif-error("%s: magic 'TZif' bytes not found at position %d",
-               tzif.tzif-source, start);
+    error(make(<not-tzif-format-error>,
+               format-string: "%s: magic 'TZif' bytes not found at position %d",
+               format-arguments: list(tzif.tzif-source, start)));
   end;
   tzif.tzif-version := select (data[start + 4])
                          0 => 1;
@@ -150,6 +176,7 @@ end function;
 // long. `time-size` is either 4 or 8.
 define function parse-tzif-data-block
     (tzif :: <tzif>, start :: <integer>, time-size :: <integer>) => (zone :: <zone>)
+  let source = tzif.tzif-source;
   let data = tzif.tzif-data;
   let trans-time-start = start;
   let trans-type-start = trans-time-start + (time-size * tzif.tzif-time-count);
@@ -158,44 +185,9 @@ define function parse-tzif-data-block
   let leap-second-start   = tz-designator-start + tzif.tzif-char-count;
   let std/wall-start = leap-second-start + ((4 + 4) * tzif.tzif-leap-count);
   let ut/local-start = std/wall-start + tzif.tzif-is-std-count;
-
-  // Read the null-terminated, possibly empty, time zone designator strings.
-  let tz-abbrevs = make(<table>);
-  let bpos = tz-designator-start;
-  while (bpos < leap-second-start)
-    let (abbrev, epos) = parse-string(data, bpos, leap-second-start);
-    if (abbrev)
-      // The keys in tz-abbrevs are the indexes relative to tz-designator-start.
-      let key = bpos - tz-designator-start;
-      tz-abbrevs[key] := abbrev;
-      bpos := epos + 1;
-    else
-      tzif-error("%s: ran out of data parsing TZ abbrev names", tzif.tzif-source)
-    end;
-  end;
-
-  local method parse-local-time-types ()
-          let count = tzif.tzif-type-count;
-          let local-offsets = make(<vector>, size: count);
-          let local-dsts = make(<vector>, size: count);
-          let local-abbrevs = make(<vector>, size: count);
-          for (i from 0 below count,
-               start from local-time-start by 6)
-            local-offsets[i] := bytes-to-int32(data, start, "utcoff");
-            local-dsts[i]
-              := select (data[start + 4])
-                   0 => #f;
-                   1 => #t;
-                   otherwise => tzif-error("%s: invalid is-dst value %d should be 0 or 1,"
-                                             " for local time type starting at index %d",
-                                           tzif.tzif-source, data[start + 4], start);
-                 end;
-            let tz-index = data[start + 5];
-            local-abbrevs[i] := tz-abbrevs[tz-index];
-          end;
-          values(local-offsets, local-dsts, local-abbrevs)
-        end method;
-  let (local-offsets, local-dsts, local-abbrevs) = parse-local-time-types();
+  let tz-abbrevs = read-tz-designators(tzif, tz-designator-start, leap-second-start);
+  let (local-offsets, local-dsts, local-abbrevs)
+    = parse-local-time-types(tzif, local-time-start, tz-abbrevs);
 
   // TODO: read the leap second records.
 
@@ -236,6 +228,49 @@ define function parse-tzif-data-block
   make(<aware-zone>,
        name: tzif.tzif-zone-name,
        subzones: reverse!(subzones))
+end function;
+
+// Read the null-terminated, possibly empty, time zone designator strings.
+define function read-tz-designators
+    (tzif :: <tzif>, start-of-data :: <integer>, end-of-data :: <integer>)
+  let tz-abbrevs = make(<table>);
+  let bpos = start-of-data;
+  while (bpos < end-of-data)
+    let (abbrev, epos) = parse-string(tzif.tzif-data, bpos, end-of-data);
+    if (abbrev)
+      // The keys in tz-abbrevs are the indexes relative to bpos.
+      let key = bpos - start-of-data;
+      tz-abbrevs[key] := abbrev;
+      bpos := epos + 1;
+    else
+      tzif-error("%s: ran out of data parsing TZ abbrev names", tzif.tzif-source)
+    end;
+  end;
+  tz-abbrevs
+end function;
+
+define function parse-local-time-types
+    (tzif :: <tzif>, start-of-data :: <integer>, tz-abbrevs :: <table>)
+  let count = tzif.tzif-type-count;
+  let local-offsets = make(<vector>, size: count);
+  let local-dsts = make(<vector>, size: count);
+  let local-abbrevs = make(<vector>, size: count);
+  let data = tzif.tzif-data;
+  for (i from 0 below tzif.tzif-type-count,
+       start from start-of-data by 6)
+    local-offsets[i] := bytes-to-int32(data, start, "utcoff");
+    local-dsts[i]
+      := select (data[start + 4])
+           0 => #f;
+           1 => #t;
+           otherwise => tzif-error("%s: invalid is-dst value %d should be 0 or 1,"
+                                     " for local time type starting at index %d",
+                                   tzif.tzif-source, data[start + 4], start);
+         end;
+    let tz-index = data[start + 5];
+    local-abbrevs[i] := tz-abbrevs[tz-index];
+  end;
+  values(local-offsets, local-dsts, local-abbrevs)
 end function;
 
 define function tzif? (data :: <byte-vector>, start :: <integer>)
