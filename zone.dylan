@@ -239,11 +239,18 @@ define method zone-offset-string
   offset-to-string(zone-offset-seconds(zone, time: time | time-now()))
 end method;
 
-define constant $zones-by-long-name :: <string-table> = make(<string-table>);
-define constant $zones-by-abbreviation :: <string-table> = make(<string-table>);
 
-// Find a zone by long name and then, if not found, fall back to abbreviations.
-define function find-zone (name :: <string>) => (zone :: <zone>?)
-  element($zones-by-long-name, name, default: #f)
-    | element($zones-by-abbreviation, name, default: #f)
+// --- Zone database ---
+
+// Maps zone names to <zone>s. Note that multiple names may map to the same zone.
+define variable *zones* :: <string-table> = make(<string-table>);
+
+// Find a time zone by name. The `zones` parameter is intended for use by tests.
+define function find-zone (name :: <string>, #key zones) => (zone :: <zone>?)
+  element(zones | *zones*, name, default: #f)
+end function;
+
+// To be called at library initialization time.
+define function initialize-zones () => ()
+  *zones* := load-all-zones();
 end function;

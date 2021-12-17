@@ -109,6 +109,10 @@ end function;
 
 // This is the per-platform entry point to load zone data from the file system.
 define function load-all-zones
-    () => (zones :: <sequence>)
-  load-tzif-zone-data(as(<directory-locator>, "/usr/share/zoneinfo"))
+    () => (zones :: <string-table>)
+  // TODO: This should use the TZDIR environment variable once leap seconds are
+  // supported.  Usually that should point to /usr/share/zoneinfo/posix (based on UTC
+  // without leap seconds) or /usr/share/zoneinfo/right (based on International Atomic
+  // Time (TAI) and accounting for leap seconds).
+  load-tzif-zones(as(<directory-locator>, "/usr/share/zoneinfo/posix"))
 end function;

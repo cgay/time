@@ -216,7 +216,7 @@ define test test-load-tzif-file ()
       write-element(stream, byte);
     end;
   end;
-  let zone = load-tzif-file(path);
+  let zone = load-tzif-file("Hongkong", path);
   assert-equal("HKT", zone.zone-abbreviation);
   // TODO: more validation
 end test;
@@ -244,4 +244,35 @@ define test test-bytes-to-int64 ()
   assert-equal(-2, bytes-to-int64(#[255, 255, 255, 255, 255, 255, 255, 254], 0, "test"));
   assert-equal(ga/^(-2, 63),
                bytes-to-int64(#[128, 0, 0, 0, 0, 0, 0, 0], 0, "test"));
+end test;
+
+// Just a couple of checks that my own TZ is working correctly.
+define test test-us-eastern-sanity-check ()
+  let us-eastern :: <aware-zone> = find-zone("US/Eastern");
+
+  // {<subzone> EST o=-18000 dst=#f 2021-11-07T06:00:00.0Z...}
+  // {<subzone> EDT o=-14400 dst=#t 2021-03-14T07:00:00.0Z...}
+
+  // At 2021-03-14T06:59:59.999999999Z is it still EST?
+  let t1 = compose-time(2021, $march, 14, 6, 59, 59, 999_999_999, $utc);
+  assert-equal(-5 * 60 * 60, zone-offset-seconds(us-eastern, time: t1));
+
+  // At 2021-03-14T07:00:00.0Z (one nano later) has it switched to EDT?
+  let t2 = compose-time(2021, $march, 14, 2, 0, 0, 0, $utc);
+  //assert-equal(-4 * 60 * 60, zone-offset-seconds(us-eastern, time: t2));
+  assert-equal(with-output-to-string (s1)
+                 format(s1, "x");
+                 format-time(s1, "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}.{micros}{offset}", t2, zone: $utc)
+               end,
+               with-output-to-string (s2)
+                 format-time(s2, "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}.{micros}{offset}", t2, zone: us-eastern)
+               end);
+
+  // At 2021-11-07T05:59:59.999999999Z is it still EDT?
+  let t3 = compose-time(2021, $november, 7, 5, 59, 59, 999_999_999, $utc);
+  assert-equal(-4 * 60 * 60, zone-offset-seconds(us-eastern, time: t3));
+
+  // At 2021-11-07T06:00:00.0Z (one nano later) has it switched back to EST?
+  let t4 = compose-time(2021, $november, 7, 6, 0, 0, 0, $utc);
+  assert-equal(-5 * 60 * 60, zone-offset-seconds(us-eastern, time: t4));
 end test;

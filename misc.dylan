@@ -25,9 +25,13 @@ end function;
 
 // --- Debugging ---
 
+define constant $debug? = #t;
+
 define function debug-out (fmt, #rest args)
-  apply(format-err, fmt, args);
-  force-err();
+  if ($debug?)
+    apply(format-err, fmt, args);
+    force-err();
+  end;
 end function;
 
 ignorable(debug-out);

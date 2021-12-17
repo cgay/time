@@ -98,14 +98,12 @@ The library API can be logically separated into several parts:
 
 ## TODO
 
-* Platform-specific libraries.
+* Platform other than `x86_64-linux`. Do we want to support 32-bit?
 
 * Like Rust's time::Instant, uses monotonic clock: `define class <instant>
   (<abstract-time>)` Is this needed?
 
 *  `<date>`, `<naive-date>`, `<time-of-day>`?
-
-*  Load TZ data for "aware" time zones.
 
 *  Decide how/whether to deal with monotonic clocks here.
 

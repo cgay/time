@@ -111,6 +111,9 @@ define table $time-format-map :: <string-table>
       "f9"     => pair(6, curry(format-ndigit-int-mod, 9, 1_000_000_000)),
 
       "zone"     => pair(7, format-zone-name),       // UTC, PST, etc
+
+      // TODO: these fail for <aware-zone>s. Need some refactoring to make sure the
+      // offset is found for the correct time.
       "offset"   => pair(7, rcurry(format-zone-offset, colon?: #f, utc-name: #f)), // +0000
       "offset:"  => pair(7, rcurry(format-zone-offset, colon?: #t, utc-name: #f)), // +00:00
       "offset:Z" => pair(7, rcurry(format-zone-offset, colon?: #t, utc-name: "Z")), // Z or +02:00
@@ -236,6 +239,9 @@ define constant $rfc3339-milliseconds :: <time-format>
 define constant $rfc3339-microseconds :: <time-format>
   = make(<time-format>, string: "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}.{micros}{offset:Z}");
 
+// TODO: these both format with "Z" for the offset:
+//   format-time(s1, $rfc3339, t2, zone: $utc)
+//   format-time(s1, $rfc3339, t2, zone: find-zone("US/Eastern"))
 define /* inline */ method format-time
     (stream :: <stream>, fmt :: <time-format>, time :: <time>, #key zone :: <zone>?)
  => ()
@@ -255,6 +261,9 @@ define /* inline */ method format-time
  => ()
   // I'm assuming that v is stack allocated. Verify.
   let (#rest v) = time-components(time);
+  if (zone)
+    v[7] := zone;
+  end;
   for (item in fmt)
     select (item by instance?)
       <string>

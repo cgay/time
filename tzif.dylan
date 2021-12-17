@@ -1,15 +1,14 @@
 Module: %time
 Synopsis: Read TZif (RFC 8536) file format
 
-// zdump can be useful for debugging TZif:
-// ./tzdb/zdump -V /usr/share/zoneinfo/Hongkong
-
 // Note that this code uses the big-integer and generic-arithmetic libraries with a
 // module prefix in order to be able to accept the full range of 64-bit integers in the
 // TZif data. By design, once the data has been processed only integers that will fit in
 // Dylan's 62-bit signed integers (days and nanos) remain, so the main time code doesn't
 // need to take a performance hit and code that uses time doesn't need to handle extended
 // integers.
+
+// --- Errors ---
 
 define class <tzif-error> (<time-error>) end;
 
@@ -20,6 +19,24 @@ define function tzif-error (format-string, #rest format-arguments)
               format-string: format-string,
               format-arguments: format-arguments));
 end function;
+
+// --- Debugging ---
+
+// zdump can be useful for debugging TZif:
+// ./tzdb/zdump -V /usr/share/zoneinfo/Hongkong
+
+define variable *debug-tzif?* = #f;
+
+define function debug-tzif (fmt, #rest args)
+  if (*debug-tzif?*)
+    apply(format-err, fmt, args);
+    force-err();
+  end;
+end function;
+
+ignorable(debug-tzif);
+
+// --- TZif ---
 
 // <tzif> encapsulates one TZif format record, which is a description of one time
 // zone. These are only used during parsing. The result of parsing a TZif record is an
@@ -59,78 +76,94 @@ define method print-object (t :: <tzif>, stream :: <stream>) => ()
   end;
 end method;
 
-// Load all TZif format files in `root-directory`.
-define function load-tzif-zone-data
-    (root-directory :: <directory-locator>) => (zones :: <sequence>)
-  let zones = make(<stretchy-vector>);
+// Load all TZif format files in `root-directory`. Return a map from zone names to <zone>
+// objects. This is designed to read the /usr/share/zoneinfo directory on Linux.
+define function load-tzif-zones
+    (root-directory :: <directory-locator>) => (zones :: <string-table>)
+  let zones = make(<string-table>, size: 700);
+  let loaded-files = make(<string-table>, size: 700);
   local
-    method load-one (directory, filename, type)
-      select (type)
-        #"file", #"link" =>
-          let locator = if (type = #"link")
-                          merge-locators(as(<file-locator>, filename),
-                                         as(<directory-locator>, directory))
-                        else
-                          make(<file-locator>, directory: directory, name: filename)
-                        end;
-          debug-out("%s\n", locator);
+    method add-zone (name :: <string>, zone :: <zone>, locator :: <file-locator>)
+                 => (z :: <zone>?)
+      debug-tzif("loaded zone %s (%s) from %s\n", zone, name, locator);
+      let name2 = map(method (c) iff(c = '_', ' ', c) end, name);
+      if (name ~= name2)
+        zones[name2] := zone;
+      end;
+      zones[name] := zone
+    end,
+    method load-file (directory, filename) => (z :: <zone>?)
+      let locator = merge-locators(as(<file-locator>, filename),
+                                   as(<directory-locator>, directory));
+      // Name is taken from the original filename without first following links.
+      let name = as(<string>, simplify-locator(relative-locator(locator, root-directory)));
+      // File has links fully resolved.
+      let file = as(<string>, resolve-locator(locator));
+      let zone-by-name = element(zones, name, default: #f);
+      let zone-by-file = element(loaded-files, file, default: #f);
+      case
+        zone-by-name =>
+          zone-by-name;
+        zone-by-file =>
+          // Loading a link to a file that was already loaded; just map the new name.
+          add-zone(name, zone-by-file, locator);
+        otherwise =>
           let zone = block ()
-                       load-tzif-file(locator);
+                       load-tzif-file(name, locator)
                      exception (<not-tzif-format-error>)
-                       debug-out("ignoring non-TZif file %s\n", locator);
                        #f
-                     // exception (err :: <error>)
-                     //   debug-out("error: %s\n", err);
-                     //   #f
                      end;
           if (zone)
-            debug-out("loaded zone %s from %s\n", zone, locator);
-            // TODO: ensure that we don't have two zones with the same name
-            add!(zones, zone)
+            loaded-files[file] := zone;
+            add-zone(name, zone, locator)
           end;
+      end case
+    end method,
+    method do-one (directory, filename, type)
+      select (type)
+        #"file", #"link" =>
+          load-file(directory, filename);
         #"directory" =>
-          if (filename ~= "." & filename ~= "..")
-            do-directory(load-one,
-                         subdirectory-locator(as(<directory-locator>, directory),
-                                              filename));
-          end;
+          do-directory(do-one, subdirectory-locator(as(<directory-locator>, directory),
+                                                    filename));
       end select;
     end method;
-  do-directory(load-one, root-directory);
+  do-directory(do-one, root-directory);
+  debug-tzif("Loaded %d zones\n", zones.size);
   zones
 end function;
 
 define constant $tzif-header-octet-count = 44;
 
 // Load a TZif format file. Signal an error if it isn't TZif format or claims
-// to be but is malformatted. If debug? is true, print debug info on stderr.
+// to be but is malformatted.
 define function load-tzif-file
-    (file :: <file-locator>) => (zone :: <zone>?)
+    (name :: <string>, file :: <file-locator>) => (zone :: <zone>?)
   with-open-file (stream = file, direction: #"input", element-type: <byte>)
     let data = read-to-end(stream);
     let tzif = make(<tzif>,
-                    name: locator-base(file),
+                    name: name,
                     data: data,
                     source: as(<string>, file));
     load-zone(tzif)
   end
-end function load-tzif-file;
+end function;
 
 define function load-zone (tzif :: <tzif>) => (zone :: <aware-zone>)
-  parse-header(tzif, 0, 1);
+  decode-header(tzif, 0, 1);
   // Version 1 block is always present, but should be ignored if the version is 2 or
   // higher.
   select (tzif.tzif-version)
     1 =>
-      parse-tzif-data-block(tzif, $tzif-header-octet-count, 4);
+      decode-tzif-data-block(tzif, $tzif-header-octet-count, 4);
     2, 3 =>
-      parse-header(tzif, tzif.tzif-end-of-v1-data, tzif.tzif-version);
-      parse-tzif-data-block(tzif, tzif.tzif-end-of-v1-data + $tzif-header-octet-count, 8);
+      decode-header(tzif, tzif.tzif-end-of-v1-data, tzif.tzif-version);
+      decode-tzif-data-block(tzif, tzif.tzif-end-of-v1-data + $tzif-header-octet-count, 8);
   end
 end function;
 
 // Parse the headers starting at `start` and store the values into `tzif`.
-define function parse-header
+define function decode-header
     (tzif :: <tzif>, start :: <integer>, version :: <integer>)
   let data :: <byte-vector> = tzif.tzif-data;
   if (~tzif?(data, start))
@@ -170,11 +203,14 @@ define function parse-header
   else
     tzif.tzif-end-of-v2-data := data-end;
   end;
+  debug-tzif("v=%d, isutcnt=%d, isstdcnt=%d, leapcnt=%d, timecnt=%d, typecnt=%d, charcnt=%d\n",
+             version, tzif.tzif-is-utc-count, tzif.tzif-is-std-count, tzif.tzif-leap-count,
+             tzif.tzif-time-count, tzif.tzif-type-count, tzif.tzif-char-count);
 end function;
 
 // Parse the data block beginning at `start` with times that are `time-size` bytes
 // long. `time-size` is either 4 or 8.
-define function parse-tzif-data-block
+define function decode-tzif-data-block
     (tzif :: <tzif>, start :: <integer>, time-size :: <integer>) => (zone :: <zone>)
   let source = tzif.tzif-source;
   let data = tzif.tzif-data;
@@ -185,9 +221,13 @@ define function parse-tzif-data-block
   let leap-second-start   = tz-designator-start + tzif.tzif-char-count;
   let std/wall-start = leap-second-start + ((4 + 4) * tzif.tzif-leap-count);
   let ut/local-start = std/wall-start + tzif.tzif-is-std-count;
-  let tz-abbrevs = read-tz-designators(tzif, tz-designator-start, leap-second-start);
+  debug-tzif("trans-times=%d, trans-types=%d, local-times=%d, tz-strings=%d,"
+               " leap-seconds=%d, std/wall=%d, ut/local=%d\n",
+             trans-time-start, trans-type-start, local-time-start, tz-designator-start,
+             leap-second-start, std/wall-start, ut/local-start);
   let (local-offsets, local-dsts, local-abbrevs)
-    = parse-local-time-types(tzif, local-time-start, tz-abbrevs);
+    = decode-local-time-types(tzif, local-time-start, tz-designator-start,
+                              leap-second-start);
 
   // TODO: read the leap second records.
 
@@ -224,33 +264,15 @@ define function parse-tzif-data-block
                        dst?: local-dsts[local-time-type-index]);
     add!(subzones, subzone);
   end for;
-  parse-footer(subzones, data, tzif.tzif-end-of-v2-data, data.size);
+  decode-footer(subzones, data, tzif.tzif-end-of-v2-data, data.size);
   make(<aware-zone>,
        name: tzif.tzif-zone-name,
        subzones: reverse!(subzones))
 end function;
 
-// Read the null-terminated, possibly empty, time zone designator strings.
-define function read-tz-designators
-    (tzif :: <tzif>, start-of-data :: <integer>, end-of-data :: <integer>)
-  let tz-abbrevs = make(<table>);
-  let bpos = start-of-data;
-  while (bpos < end-of-data)
-    let (abbrev, epos) = parse-string(tzif.tzif-data, bpos, end-of-data);
-    if (abbrev)
-      // The keys in tz-abbrevs are the indexes relative to bpos.
-      let key = bpos - start-of-data;
-      tz-abbrevs[key] := abbrev;
-      bpos := epos + 1;
-    else
-      tzif-error("%s: ran out of data parsing TZ abbrev names", tzif.tzif-source)
-    end;
-  end;
-  tz-abbrevs
-end function;
-
-define function parse-local-time-types
-    (tzif :: <tzif>, start-of-data :: <integer>, tz-abbrevs :: <table>)
+define function decode-local-time-types
+    (tzif :: <tzif>, start-of-data :: <integer>, tz-abbrev-start :: <integer>,
+     leap-second-start :: <integer>)
   let count = tzif.tzif-type-count;
   let local-offsets = make(<vector>, size: count);
   let local-dsts = make(<vector>, size: count);
@@ -263,12 +285,16 @@ define function parse-local-time-types
       := select (data[start + 4])
            0 => #f;
            1 => #t;
-           otherwise => tzif-error("%s: invalid is-dst value %d should be 0 or 1,"
-                                     " for local time type starting at index %d",
-                                   tzif.tzif-source, data[start + 4], start);
+           otherwise
+             => tzif-error("%s: invalid is-dst value %d should be 0 or 1,"
+                             " for local time type starting at index %d",
+                           tzif.tzif-source, data[start + 4], start);
          end;
     let tz-index = data[start + 5];
-    local-abbrevs[i] := tz-abbrevs[tz-index];
+    local-abbrevs[i]
+      := parse-nul-terminated-string(data, tz-abbrev-start + tz-index, leap-second-start);
+    debug-tzif("local offset=%d, dst=%=, tz-index=%d, abbrev=%s\n",
+               local-offsets[i], local-dsts[i], tz-index, local-abbrevs[i]);
   end;
   values(local-offsets, local-dsts, local-abbrevs)
 end function;
@@ -333,18 +359,18 @@ define function bytes-to-int64 (bytes, start, id) => (i :: ga/<integer>)
   end
 end function;
 
-// Parse a nul-terminated string from `bytes`.
-define not-inline function parse-string (bytes, bpos, epos) => (_ :: <string>?, pos :: <integer>)
+// Parse a NUL-terminated string from `bytes`. A NUL byte must come before `epos`.
+define not-inline function parse-nul-terminated-string
+    (bytes, bpos, epos) => (_ :: <string>?, pos :: <integer>)
   let v = make(<stretchy-vector>);
   iterate loop (i = bpos)
-    let byte = bytes[i];
     if (i >= epos)
       values(#f, i)
-    elseif (byte = 0)
+    elseif (bytes[i] = 0)
       values(map-as(<string>, curry(as, <character>), v),
              i)
     else
-      add!(v, byte);
+      add!(v, bytes[i]);
       loop(i + 1)
     end
   end
@@ -353,7 +379,7 @@ end function;
 // Parse the version 2 and 3 footer, which gives a rule for computing local time changes
 // after the last transition time. The rule is specified here:
 // https://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap08.html
-define function parse-footer (subzones, bytes, bpos, epos) => ()
+define function decode-footer (subzones, bytes, bpos, epos) => ()
   // TODO: parse the footer. Looks somewhat involved so I'll put it off until more basic
   // features that allow replacing the current date library are done. Probably not going
   // to be able to just add subzones since times can be billions of years in the future.

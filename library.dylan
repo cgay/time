@@ -106,16 +106,14 @@ define module %time
   use c-ffi;
   use common-dylan;
   use file-system,
-    import: { <file-locator>, do-directory, file-exists?,
+    import: { <file-locator>, do-directory, file-exists?, link-target,
               with-open-file };
   use format,
     import: { format, format-to-string };
   use format-out;
   use generic-arithmetic,
     prefix: "ga/";
-  use locators,
-    import: { <directory-locator>, <file-locator>, locator-base, merge-locators,
-              resolve-locator, subdirectory-locator };
+  use locators;
   use print,
     import: { print, print-object, printing-object, *print-escape?* };
   use standard-io,
