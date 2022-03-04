@@ -16,6 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: dylan-lang/install-opendylan@v1
+
+      - name: list files
+        run: find .
+
       - uses: actions/checkout@v2
 
       - name: Build time-test-suite
