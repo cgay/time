@@ -19,7 +19,9 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Build time-test-suite
-        run: ./dylan-compiler -build -jobs 3 time-test-suite
+        run: |
+          find .
+          ./dylan-compiler -build -jobs 3 time-test-suite
 
       - name: Run time-test-suite
         run: _build/bin/time-test-suite
