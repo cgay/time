@@ -27,7 +27,7 @@ jobs:
         run: |
           pwd
           find .
-          ./dylan-compiler -build -jobs 3 time-test-suite
+          ./dylan-compiler -build -jobs 3 time-test-suite.lid
 
       - name: Run time-test-suite
         run: _build/bin/time-test-suite
