@@ -12,18 +12,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-test:
+  build-and-test-ubuntu-latest:
     runs-on: ubuntu-latest
     steps:
       - uses: dylan-lang/install-opendylan@v1
 
       - name: list files
-        run: find .
+        run: |
+          pwd
+          find .
 
       - uses: actions/checkout@v2
 
       - name: Build time-test-suite
         run: |
+          pwd
           find .
           ./dylan-compiler -build -jobs 3 time-test-suite
 
