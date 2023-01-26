@@ -5,3 +5,4 @@ files: time-test-suite-library
        tzif-test
        time-test
        formatting-test
+target-type: executable

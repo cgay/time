@@ -7,5 +7,6 @@ files: library
        formatting
        unix-time
        init
+target-type: dll
 c-source-files: unix-portability.c
 platforms: x86_64-linux
