@@ -260,13 +260,21 @@ define test test-us-eastern-sanity-check ()
   // At 2021-03-14T07:00:00.0Z (one nano later) has it switched to EDT?
   let t2 = compose-time(2021, $march, 14, 2, 0, 0, 0, $utc);
   //assert-equal(-4 * 60 * 60, zone-offset-seconds(us-eastern, time: t2));
-  assert-equal(with-output-to-string (s1)
-                 format(s1, "x");
-                 format-time(s1, "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}.{micros}{offset}", t2, zone: $utc)
-               end,
-               with-output-to-string (s2)
-                 format-time(s2, "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}.{micros}{offset}", t2, zone: us-eastern)
-               end);
+  let utc-string
+    = with-output-to-string (s1)
+        format(s1, "x");
+        format-time(s1, "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}.{micros}{offset}", t2,
+                    zone: $utc)
+      end;
+  test-output("bbb\n");
+  let us-eastern-string
+    = with-output-to-string (s2)
+        format-time(s2, "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}.{micros}{offset}", t2,
+                    zone: us-eastern)
+      end;
+  test-output("ccc\n");
+
+  assert-equal(utc-string, us-eastern-string);
 
   // At 2021-11-07T05:59:59.999999999Z is it still EDT?
   let t3 = compose-time(2021, $november, 7, 5, 59, 59, 999_999_999, $utc);

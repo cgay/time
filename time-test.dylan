@@ -87,5 +87,6 @@ end test;
 
 define test test-print-object ()
   assert-equal("1970-01-01T00:00:00.0Z", format-to-string("%s", $epoch));
-  assert-equal("{<time> 0d 0ns +00:00}", format-to-string("%=", $epoch));
+  assert-true(regex-search(compile-regex("{<time> 0d 0ns \\+00:00 \\d+}"),
+                           format-to-string("%=", $epoch)));
 end test;

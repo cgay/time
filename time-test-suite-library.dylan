@@ -5,6 +5,7 @@ define library time-test-suite
   use common-dylan;
   use generic-arithmetic;
   use io;
+  use regular-expressions;
   use system;
   use testworks;
   use time;
@@ -17,6 +18,7 @@ define module time-test-suite
   use generic-arithmetic,
     prefix: "ga/";
   use locators;
+  use regular-expressions;
   use streams;
   use testworks;
   use time;
