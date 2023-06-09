@@ -3,10 +3,11 @@
     "description": "Time and duration manipulation",
     "version": "0.1",
     "dependencies": [
-        "strings@1.2",
+        "strings@1.2"
     ],
     "dev-dependencies": [
         "testworks",
+        "sphinx-extensions"
     ],
     "url": "https://github.com/cgay/time"
 }
