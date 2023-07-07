@@ -7,8 +7,28 @@ The TIME library
 .. current-library:: time
 .. current-module:: time
 
+This time library is intended as a modernization of Open Dylan's "date" module
+in the "system" library. It has a nanosecond precision and more efficient time
+representation, and a more complete API.
+
+Current Status
+==============
+
+* This is **alpha** software.
+* It works only on Linux (possibly on macOS but it hasn't been tried).
+* It works only on 64-bit machines.
+* It can get the current time, to nanosecond precision.
+* It can format times and durations.
+* Fixed-offset timezones work.
+* Support for "aware" timezones is underway. Support for TZif format is about
+  half done.
+* The API should be considered provisional.
+
+You have been warned. Enjoy!
+
 .. note:: This documentation contains little more than the stubs auto-generated
-          by :command:`export -format rst interface-reference`. Much to do...
+          by :command:`export -format rst interface-reference`. Use the sauce,
+          Luke.
 
 
 Reference
