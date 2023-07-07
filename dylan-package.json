@@ -1,7 +1,7 @@
 {
     "name": "time",
-    "description": "Time and duration manipulation",
-    "version": "0.1",
+    "description": "A time library",
+    "version": "0.1.0",
     "dependencies": [
         "strings@1.2"
     ],
