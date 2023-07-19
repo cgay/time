@@ -154,12 +154,12 @@ define sealed domain \< (<time>, <time>);
 // =
 
 define method \= (t1 :: <time>, t2 :: <time>) => (_ :: <boolean>)
-  t1.%days = t2.%days
-    & t1.%nanoseconds = t2.%nanoseconds
+  t1.%days == t2.%days
+    & t1.%nanoseconds == t2.%nanoseconds
 end;
 
 define method \= (d1 :: <duration>, d2 :: <duration>) => (_ :: <boolean>)
-  d1.duration-nanoseconds = d2.duration-nanoseconds
+  d1.duration-nanoseconds == d2.duration-nanoseconds
 end;
 
 define method \< (t1 :: <time>, t2 :: <time>) => (_ :: <boolean>)
