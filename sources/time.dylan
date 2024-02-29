@@ -294,17 +294,17 @@ define inline function adjust-for-zone-offset
 end function;
 
 define method compose-time
-    (y :: <integer>, mon :: <month>, d :: <integer>, h :: <integer>,
+    (year :: <integer>, mon :: <month>, day :: <integer>, hour :: <integer>,
      min :: <integer>, sec :: <integer>, nano :: <integer>, zone :: <zone>)
- => (_ :: <time>)
-  let days = days-from-civil(y, month-number(mon), d);
-  let nanoseconds = (h * 60 * 60_000_000_000
+ => (t :: <time>)
+  let days = days-from-civil(year, month-number(mon), day);
+  let nanoseconds = (hour * 60 * 60_000_000_000
                        + min * 60_000_000_000
                        + sec * 1_000_000_000
                        + nano);
-  // TODO: this call to zone-offset-seconds ends up calling time-now(). We shouldn't need
-  // to allocate an extra <time> to make a <time>. Make a %zone-offset that accepts days
-  // and nanos and a %time-now that returns them?
+  // TODO: this call to zone-offset-seconds ends up calling time-now() if `zone` is
+  // aware. We shouldn't need to allocate an extra <time> to make a <time>. Make a
+  // %zone-offset that accepts days and nanos and a %time-now that returns them?
   let (days, nanos)
     = adjust-for-zone-offset(days, nanoseconds,
                              zone-offset-seconds(zone) * $nanos/second);
