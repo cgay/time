@@ -114,5 +114,12 @@ define function load-all-zones
   // supported.  Usually that should point to /usr/share/zoneinfo/posix (based on UTC
   // without leap seconds) or /usr/share/zoneinfo/right (based on International Atomic
   // Time (TAI) and accounting for leap seconds).
-  load-tzif-zones(as(<directory-locator>, "/usr/share/zoneinfo/posix"))
+  let path = select (os/$os-name)
+               #"linux" => "/usr/share/zoneinfo/posix";
+               #"darwin" => "/usr/share/zoneinfo.default";
+               otherwise =>
+                 time-error("The time library does not yet support the %= operating system.",
+                            os/$os-name)
+             end;
+  load-tzif-zones(as(<directory-locator>, path))
 end function;

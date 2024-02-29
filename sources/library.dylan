@@ -11,7 +11,7 @@ define library time
     import: { format, format-out, print, pprint, standard-io, streams };
   use strings;
   use system,
-    import: { file-system, locators, threads };
+    import: { file-system, locators, operating-system, threads };
   export
     time,
     %time;                // for unit tests only! depend on this at your peril!
@@ -114,6 +114,8 @@ define module %time
   use generic-arithmetic,
     prefix: "ga/";
   use locators;
+  use operating-system,
+    prefix: "os/";
   use print,
     import: { print, print-object, printing-object, *print-escape?* };
   use standard-io,

@@ -10,3 +10,4 @@ files: library
 target-type: dll
 c-source-files: unix-portability.c
 platforms: x86_64-linux
+           x86_64-darwin
