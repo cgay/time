@@ -1,0 +1,16 @@
+# backup files
+*~
+*.bak
+.DS_Store
+
+# compiler build directory
+_build/
+
+# dylan tool package cache
+_packages/
+
+# package registry folder
+registry/
+
+# documentation build directory
+/documentation/build/
