@@ -15,11 +15,14 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: dylan-lang/install-opendylan@v1
-      - uses: actions/checkout@v2
+      - uses: dylan-lang/install-opendylan@v3
+      - uses: actions/checkout@v4
+
+      - name: Download dependencies
+        run: dylan update
 
       - name: Build time-test-suite
-        run: ./dylan-compiler -build -jobs 3 time-test-suite
+        run: dylan build time-test-suite
 
       - name: Run time-test-suite
         run: _build/bin/time-test-suite
