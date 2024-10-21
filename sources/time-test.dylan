@@ -90,3 +90,7 @@ define test test-print-object ()
   assert-true(regex-search(compile-regex("{<time> 0d 0ns \\+00:00 \\d+}"),
                            format-to-string("%=", $epoch)));
 end test;
+
+define test test-microsecond-counter ()
+  assert-equal(123, microsecond-counter());
+end test;

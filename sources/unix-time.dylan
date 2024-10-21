@@ -1,5 +1,65 @@
 Module: %time
 
+
+// Copied from unix-operating-system.dylan. There's also a copy in
+// timers.dylan...should we export it from common-extensions?
+define macro with-storage
+  { with-storage (?:name, ?size:expression) ?:body end }
+  => { begin
+         let ?name = primitive-wrap-machine-word(integer-as-raw(0));
+         let storage-size :: <integer> = ?size;
+         block ()
+           ?name := primitive-wrap-machine-word
+                      (primitive-cast-pointer-as-raw
+                         (%call-c-function ("MMAllocMisc")
+                            (nbytes :: <raw-c-size-t>) => (p :: <raw-c-pointer>)
+                            (integer-as-raw(storage-size))
+                          end));
+           if (primitive-machine-word-equal?
+                 (primitive-unwrap-machine-word(?name), integer-as-raw(0)))
+             error("unable to allocate %d bytes of storage", ?size);
+           end;
+           ?body
+         cleanup
+           if (primitive-machine-word-not-equal?
+                 (primitive-unwrap-machine-word(?name), integer-as-raw(0)))
+             %call-c-function ("MMFreeMisc")
+               (p :: <raw-c-pointer>, nbytes :: <raw-c-size-t>) => ()
+                 (primitive-cast-raw-as-pointer(primitive-unwrap-machine-word(?name)),
+                  integer-as-raw(storage-size))
+             end;
+             #f
+           end
+         end
+       end }
+end macro;
+
+// TODO: this (and with-storage) should move to somewhere that's platform
+// independent since each platform has a time_get_monotonic_counter
+// implementation in unix-portability.c.
+define function microsecond-counter () => (microseconds :: <integer>)
+  let secs :: <machine-word> = primitive-wrap-machine-word(integer-as-raw(0));
+  let nsecs :: <machine-word> = primitive-wrap-machine-word(integer-as-raw(0));
+  with-storage (timeloc, 8)
+    %call-c-function ("time_get_monotonic_counter")
+        (time :: <raw-c-pointer>)
+     => ()
+      (primitive-cast-raw-as-pointer(primitive-unwrap-machine-word(timeloc)))
+    end;
+    secs := primitive-wrap-machine-word(
+              primitive-c-unsigned-int-at(primitive-unwrap-machine-word(timeloc),
+                                          integer-as-raw(0),
+                                          integer-as-raw(0)));
+    nsecs := primitive-wrap-machine-word(
+               primitive-c-unsigned-int-at(primitive-unwrap-machine-word(timeloc),
+                                           integer-as-raw(1),
+                                           integer-as-raw(0)));
+  end with-storage;
+  let seconds :: <integer> = as-unsigned(<integer>, secs);
+  let nanoseconds :: <integer> = as-unsigned(<integer>, nsecs);
+  seconds * 1_000_000 + truncate/(nanoseconds, 1000)
+end function;
+
 define c-function get-clock-realtime
   result clock-id :: <c-int>;
   c-name: "c_get_clock_realtime";

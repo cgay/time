@@ -2,10 +2,11 @@ Module: dylan-user
 
 define library time
   use big-integers;
+  use c-ffi;
   use collections,
     import: { table-extensions };
   use common-dylan;
-  use c-ffi;
+  use dylan; //, import: dylan-direct-c-ffi;
   use generic-arithmetic;
   use io,
     import: { format, format-out, print, pprint, standard-io, streams };
@@ -87,6 +88,9 @@ define module time
     // time - duration => time
     // duration - duration => duration
 
+    // Low-level timing primitives
+    microsecond-counter,
+
     // Zones
     <zone>,
     zone-abbreviation,
@@ -103,6 +107,7 @@ end module time;
 define module %time
   use time;
 
+  use dylan-direct-c-ffi;
   use c-ffi;
   use common-dylan;
   use file-system,
