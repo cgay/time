@@ -1,11 +1,12 @@
 # A Time Library for Dylan
 
-**Current status as of Oct 2021:**
+**Current status as of Oct 2024:**
 
-*  Most APIs work, but on Linux only.
-*  No TZ data yet so only naive time zones work.
+*  Most APIs work, but on Linux and macOS only.
+*  Aware time zones are incomplete because TZif support is incomplete.
 *  Needs more tests.
 *  No monotonic clock support yet.
+*  Assumes 64-bit integers.
 
 This library is intended to be an improvement on the Open Dylan `date` library
 for several reasons:
@@ -35,9 +36,8 @@ detail.
 
 The `time` library exports a single module, `time` which exports these classes:
 
-* `<time>` - an instant in time, an offset from the Unix Epoch. Has an
-  associated time zone for use when converting to the time in a specific
-  location on Earth.
+* `<time>` - an instant in time, an offset from the Unix Epoch. Always in UTC.
+  Specify a zone when displaying a time, if necessary.
 
 * `<duration>` - the elapsed time between two time instants, to nanosecond
   precision.
@@ -63,12 +63,13 @@ The library API can be logically separated into several parts:
   `parse-time`, or by constructing one from components with `compose-time(year,
   month, day, ...)`. It is also fine to call `make(<time>)` directly.
 
-* Accessors - for example to extract the number of seconds from a time or the
-  number of days in a month.
+* Accessors - primarily `time-components` to break a time down into year,
+  month, day, hour, etc.
 
 * Conversions - for converting times and durations to and from strings,
   composing/decomposing them from/into their parts, or converting to a
-  different zone.
+  different zone. `compose-time`, `time-components`, `format-time`,
+  `parse-time`, ....
 
 * Comparisons - the `=`, `<`, and `>` functions work on pairs of times and
   pairs of durations.
@@ -98,7 +99,8 @@ The library API can be logically separated into several parts:
 
 ## TODO
 
-* Platform other than `x86_64-linux`. Do we want to support 32-bit?
+* Platform other than `x86_64-linux` and `x86_64-darwin`. Do we want to support
+  32-bit?
 
 * Like Rust's time::Instant, uses monotonic clock: `define class <instant>
   (<abstract-time>)` Is this needed?
