@@ -72,54 +72,53 @@ define function parse-time-format (descriptor :: <string>) => (_ :: <sequence>)
 end function;
 
 // Each value is a pair of #(time-component . formatter-function) where
-// time-component is the index into the return values list of the
-// time-components function. 0 = year, 1 = month, etc
+// time-component is a keyword that matches the select statement used in
+// format-time.
 //
 // TODO: BC/AD, BCE/CE (see ISO 8601)
-// TODO: make this extensible
 define table $time-format-map :: <string-table>
-  = { "yyyy"   => pair(0, curry(format-ndigit-int, 4)),
-      "yy"     => pair(0, curry(format-ndigit-int-mod, 2, 100)),
-      "mm"     => pair(1, method (stream, month)
-                            format-ndigit-int(2, stream, month.month-number)
-                          end),
-      "mon"    => pair(1, format-short-month-name),
-      "month"  => pair(1, format-long-month-name),
-      "dd"     => pair(2, curry(format-ndigit-int, 2)),
-      "HH"     => pair(3, curry(format-ndigit-int, 2)),
-      "hh"     => pair(3, format-hour-12),
-      "am"     => pair(3, format-lowercase-am-pm),
-      "pm"     => pair(3, format-lowercase-am-pm),
-      "AM"     => pair(3, format-uppercase-am-pm),
-      "PM"     => pair(3, format-uppercase-am-pm),
-      "MM"     => pair(4, curry(format-ndigit-int, 2)),
-      "SS"     => pair(5, curry(format-ndigit-int, 2)),
-      "millis" => pair(6, curry(format-ndigit-int-mod, 3, 1000)),
-      "micros" => pair(6, curry(format-ndigit-int-mod, 6, 1_000_000)),
-      "nanos"  => pair(6, curry(format-ndigit-int-mod, 9, 1_000_000_000)),
+  = { "yyyy"   => pair(#"year", curry(format-ndigit-int, 4)),
+      "yy"     => pair(#"year", curry(format-ndigit-int-mod, 2, 100)),
+      "mm"     => pair(#"month", method (stream, month)
+                                   format-ndigit-int(2, stream, month.month-number)
+                                 end),
+      "mon"    => pair(#"month", format-short-month-name),
+      "month"  => pair(#"month", format-long-month-name),
+      "dd"     => pair(#"day-of-month", curry(format-ndigit-int, 2)),
+      "HH"     => pair(#"hour", curry(format-ndigit-int, 2)),
+      "hh"     => pair(#"hour", format-hour-12),
+      "am"     => pair(#"hour", format-lowercase-am-pm),
+      "pm"     => pair(#"hour", format-lowercase-am-pm),
+      "AM"     => pair(#"hour", format-uppercase-am-pm),
+      "PM"     => pair(#"hour", format-uppercase-am-pm),
+      "MM"     => pair(#"minute", curry(format-ndigit-int, 2)),
+      "SS"     => pair(#"second", curry(format-ndigit-int, 2)),
+      "millis" => pair(#"nanosecond", curry(format-ndigit-int-mod, 3, 1000)),
+      "micros" => pair(#"nanosecond", curry(format-ndigit-int-mod, 6, 1_000_000)),
+      "nanos"  => pair(#"nanosecond", curry(format-ndigit-int-mod, 9, 1_000_000_000)),
       // f = fractional seconds with minimum digits. fN outputs exactly N digits.
-      "f"      => pair(6, format-nanos-with-minimum-digits),
+      "f"      => pair(#"nanosecond", format-nanos-with-minimum-digits),
       // Not sure if some of these will be used, but might as well be complete.
-      "f1"     => pair(6, curry(format-ndigit-int-mod, 1, 10)),
-      "f2"     => pair(6, curry(format-ndigit-int-mod, 2, 100)),
-      "f3"     => pair(6, curry(format-ndigit-int-mod, 3, 1000)),
-      "f4"     => pair(6, curry(format-ndigit-int-mod, 4, 10_000)),
-      "f5"     => pair(6, curry(format-ndigit-int-mod, 5, 100_000)),
-      "f6"     => pair(6, curry(format-ndigit-int-mod, 6, 1_000_000)),
-      "f7"     => pair(6, curry(format-ndigit-int-mod, 7, 10_000_000)),
-      "f8"     => pair(6, curry(format-ndigit-int-mod, 8, 100_000_000)),
-      "f9"     => pair(6, curry(format-ndigit-int-mod, 9, 1_000_000_000)),
+      "f1"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 1, 10)),
+      "f2"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 2, 100)),
+      "f3"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 3, 1000)),
+      "f4"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 4, 10_000)),
+      "f5"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 5, 100_000)),
+      "f6"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 6, 1_000_000)),
+      "f7"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 7, 10_000_000)),
+      "f8"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 8, 100_000_000)),
+      "f9"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 9, 1_000_000_000)),
 
-      "zone"     => pair(7, format-zone-name),       // UTC, PST, etc
+      "zone"     => pair(#"zone", format-zone-name),       // UTC, PST, etc
 
       // TODO: these fail for <aware-zone>s. Need some refactoring to make sure the
       // offset is found for the correct time.
-      "offset"   => pair(7, rcurry(format-zone-offset, colon?: #f, utc-name: #f)), // +0000
-      "offset:"  => pair(7, rcurry(format-zone-offset, colon?: #t, utc-name: #f)), // +00:00
-      "offset:Z" => pair(7, rcurry(format-zone-offset, colon?: #t, utc-name: "Z")), // Z or +02:00
+      "offset"   => pair(#"zone", rcurry(format-zone-offset, colon?: #f, utc-name: #f)), // +0000
+      "offset:"  => pair(#"zone", rcurry(format-zone-offset, colon?: #t, utc-name: #f)), // +00:00
+      "offset:Z" => pair(#"zone", rcurry(format-zone-offset, colon?: #t, utc-name: "Z")), // Z or +02:00
 
-      "day"     => pair(8, format-short-weekday),
-      "weekday" => pair(8, format-long-weekday),
+      "day"     => pair(#"day-of-week", format-short-weekday),
+      "weekday" => pair(#"day-of-wook", format-long-weekday),
      };
 
 define function format-nanos-with-minimum-digits
@@ -256,23 +255,32 @@ define /* inline */ method format-time
   format-time(stream, parse-time-format(fmt), time, zone: zone);
 end method;
 
-define /* inline */ method format-time
+define method format-time
     (stream :: <stream>, fmt :: <sequence>, time :: <time>, #key zone :: <zone>?)
  => ()
-  // I'm assuming that v is stack allocated. Verify.
-  let (#rest v) = time-components(time);
-  if (zone)
-    v[7] := zone;
-  end;
+  let zone :: <zone> = zone | $utc;
+  let (year, month, day-of-month, hour, minute, second, nanosecond, day-of-week)
+    = time-components(time, zone: zone);
   for (item in fmt)
     select (item by instance?)
       <string>
         => write(stream, item);
       <pair>
         => begin
-             let index :: <integer> = item.head;
+             let value
+               = select (item.head)
+                   #"year"         => year;
+                   #"month"        => month;
+                   #"day-of-month" => day-of-month;
+                   #"hour"         => hour;
+                   #"minute"       => minute;
+                   #"second"       => second;
+                   #"nanosecond"   => nanosecond;
+                   #"day-of-week"  => day-of-week;
+                   #"zone"         => zone;
+                 end;
              let formatter :: <function> = item.tail;
-             formatter(stream, v[index]);
+             formatter(stream, value);
            end;
       otherwise  => time-error("invalid time format element: %=", item);
     end;

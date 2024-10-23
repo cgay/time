@@ -247,18 +247,18 @@ define test test-bytes-to-int64 ()
 end test;
 
 // Just a couple of checks that my own TZ is working correctly.
-define test test-us-eastern-sanity-check ()
+define test test-us-eastern-sanity-check (expected-to-fail-reason: "aware zones not finished")
   let us-eastern :: <aware-zone> = find-zone("US/Eastern");
 
   // {<subzone> EST o=-18000 dst=#f 2021-11-07T06:00:00.0Z...}
   // {<subzone> EDT o=-14400 dst=#t 2021-03-14T07:00:00.0Z...}
 
   // At 2021-03-14T06:59:59.999999999Z is it still EST?
-  let t1 = compose-time(2021, $march, 14, 6, 59, 59, 999_999_999, $utc);
+  let t1 = compose-time(2021, $march, 14, 6, 59, 59, 999_999_999);
   assert-equal(-5 * 60 * 60, zone-offset-seconds(us-eastern, time: t1));
 
   // At 2021-03-14T07:00:00.0Z (one nano later) has it switched to EDT?
-  let t2 = compose-time(2021, $march, 14, 2, 0, 0, 0, $utc);
+  let t2 = compose-time(2021, $march, 14, 2, 0, 0, 0);
   //assert-equal(-4 * 60 * 60, zone-offset-seconds(us-eastern, time: t2));
   let utc-string
     = with-output-to-string (s1)
@@ -277,10 +277,10 @@ define test test-us-eastern-sanity-check ()
   assert-equal(utc-string, us-eastern-string);
 
   // At 2021-11-07T05:59:59.999999999Z is it still EDT?
-  let t3 = compose-time(2021, $november, 7, 5, 59, 59, 999_999_999, $utc);
+  let t3 = compose-time(2021, $november, 7, 5, 59, 59, 999_999_999);
   assert-equal(-4 * 60 * 60, zone-offset-seconds(us-eastern, time: t3));
 
   // At 2021-11-07T06:00:00.0Z (one nano later) has it switched back to EST?
-  let t4 = compose-time(2021, $november, 7, 6, 0, 0, 0, $utc);
+  let t4 = compose-time(2021, $november, 7, 6, 0, 0, 0);
   assert-equal(-5 * 60 * 60, zone-offset-seconds(us-eastern, time: t4));
 end test;

@@ -6,41 +6,50 @@ define test test-current-time ()
   assert-true(t.%nanoseconds >= 0 & t.%nanoseconds < 1_000_000_000 * 60 * 60 * 24);
 end test;
 
-define constant $components-test-cases
-  = list(list(list(1970, $january, 1, 0, 0, 0, 0, $utc, $monday),
-              list(0, 0)),
-         list(list(1970, $january, 2, 1, 1, 1, 1, $utc, $monday),
-              list(1, 3_661_000_000_001)),
-         list(list(1969, $december, 31, 0, 0, 0, 1, $utc, $monday),
-              list(-1, 1)),
-         list(list(1969, $december, 31, 23, 59, 59, 999_999_999, $utc, $monday),
-              list(-1, 86_399_999_999_999)),
-         list(list(2020, $october, 18, 0, 0, 0, 0, $utc, $monday),
-              list(18553, 0)));
-
+// TODO: test non-UTC zone
 define test test-compose-time ()
-  for (tc in $components-test-cases)
-    let (args, want) = apply(values, tc);
-    let args = copy-sequence(args, end: args.size - 1); // remove the day
-    let t = apply(compose-time, args);
-    let (want-days, want-nanos) = apply(values, want);
-    assert-equal(t.%days, want-days,
-                 format-to-string("for %= got days %=, want %=",
-                                  args, t.%days, want-days));
-    assert-equal(t.%nanoseconds, want-nanos,
-                 format-to-string("for %= got nanoseconds %=, want %=",
-                                  args, t.%nanoseconds, want-nanos));
-  end;
+  let t1 = compose-time(1970, $january, 1, 0, 0, 0, 0, zone: $utc);
+  assert-equal(0, t1.%days);
+  assert-equal(0, t1.%nanoseconds);
+
+  let t2 = compose-time(1970, $january, 2, 1, 1, 1, 1, zone: $utc);
+  assert-equal(1, t2.%days);
+  assert-equal(3_661_000_000_001, t2.%nanoseconds);
+
+  let t3 = compose-time(1969, $december, 31, 0, 0, 0, 1, zone: $utc);
+  assert-equal(-1, t3.%days);
+  assert-equal(1, t3.%nanoseconds);
+
+  let t4 = compose-time(1969, $december, 31, 23, 59, 59, 999_999_999, zone: $utc);
+  assert-equal(-1, t4.%days);
+  assert-equal(86_399_999_999_999, t4.%nanoseconds);
+
+  let t5 = compose-time(2020, $october, 18, 0, 0, 0, 0, zone: $utc);
+  assert-equal(18553, t5.%days);
+  assert-equal(0, t5.%nanoseconds);
 end test;
 
+// TODO: test non-UTC zone
 define test test-time-components ()
-  for (tc in $components-test-cases)
-    let (args, want) = apply(values, reverse(tc));
-    let t = make(<time>, days: args[0], nanoseconds: args[1]);
-    let (#rest got) = time-components(t);
-    assert-equal(got, want,
-                 format-to-string("for %= got %=, want %=", args, got, want));
-  end;
+  let t1 = make(<time>, days: 0, nanoseconds: 0);
+  let (#rest c1) = time-components(t1, zone: $utc);
+  assert-equal(vector(1970, $january, 1, 0, 0, 0, 0, $monday), c1);
+
+  let t2 = make(<time>, days: 1, nanoseconds: 3_661_000_000_001);
+  let (#rest c2) = time-components(t2, zone: $utc);
+  assert-equal(vector(1970, $january, 2, 1, 1, 1, 1, $monday), c2);
+
+  let t3 = make(<time>, days: -1, nanoseconds: 1);
+  let (#rest c3) = time-components(t3, zone: $utc);
+  assert-equal(vector(1969, $december, 31, 0, 0, 0, 1, $monday), c3);
+
+  let t4 = make(<time>, days: -1, nanoseconds: 86_399_999_999_999);
+  let (#rest c4) = time-components(t4, zone: $utc);
+  assert-equal(vector(1969, $december, 31, 23, 59, 59, 999_999_999, $monday), c4);
+
+  let t5 = make(<time>, days: 18553, nanoseconds: 0);
+  let (#rest c5) = time-components(t5, zone: $utc);
+  assert-equal(vector(2020, $october, 18, 0, 0, 0, 0, $monday), c5);
 end test;
 
 
@@ -66,14 +75,9 @@ define test test-time+duration ()
 end test;
 
 define test test-time-= ()
+  // Two times with the same UTC seconds and nanoseconds should be equal.
   let t1 = time-now();
   assert-equal(t1, make(<time>, days: t1.%days, nanoseconds: t1.%nanoseconds));
-
-  // Two times with the same UTC seconds and nanoseconds should be equal
-  // regardless of zone.
-  assert-equal(make(<time>, days: 1, nanoseconds: 1, zone: $utc),
-               make(<time>, days: 1, nanoseconds: 1,
-                    zone: make(<naive-zone>, name: "x", offset-seconds: 5 * 60 * 60)));
 end test;
 
 define test test-time-< ()
@@ -87,6 +91,7 @@ end test;
 
 define test test-print-object ()
   assert-equal("1970-01-01T00:00:00.0Z", format-to-string("%s", $epoch));
-  assert-true(regex-search(compile-regex("{<time> 0d 0ns \\+00:00 \\d+}"),
-                           format-to-string("%=", $epoch)));
+  assert-true(regex-search(compile-regex("{<time> 0d 0ns UTC \\d+}"),
+                           format-to-string("%=", $epoch)),
+              "%= didn't match the regular expression", $epoch);
 end test;
