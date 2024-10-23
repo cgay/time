@@ -5,27 +5,18 @@ Synopsis: Time and duration implementations (because they're somewhat intertwine
 
 
 // A <time> represents an instant in UTC time, to nanosecond precision.
-//
-// TODO: at some point might want to consider making it possible to create a <time>
-// without a zone slot, or the ability to update to current time, for efficiency
-// in cases where a lot of time objects are created, like perhaps logging.
 define sealed primary class <time> (<object>)
   // Number of days since the epoch. May be positive or negative.
   constant slot %days :: <integer>, required-init-keyword: days:;
 
   // Number of nanoseconds within the day. An non-negative integer.
   constant slot %nanoseconds :: <integer>, required-init-keyword: nanoseconds:;
-
-  // Time zone to use when displaying this time. This is for convenience, so that it
-  // isn't necessary to pass a zone whenever displaying the time.
-  constant slot %zone :: <zone> = $utc, init-keyword: zone:;
 end class;
 
 define method print-object (time :: <time>, stream :: <stream>) => ()
   if (*print-escape?*)
     printing-object (time, stream)
-      let offset = zone-offset-string(time.%zone, time: time);
-      format(stream, "%dd %dns %s", time.%days, time.%nanoseconds, offset);
+      format(stream, "%dd %dns UTC", time.%days, time.%nanoseconds);
     end;
   else
     format-time(stream, $rfc3339, time);
@@ -33,20 +24,7 @@ define method print-object (time :: <time>, stream :: <stream>) => ()
 end method;
 
 define constant $epoch :: <time>
-  = make(<time>, days: 0, nanoseconds: 0, zone: $utc);
-
-define sealed generic time-year         (t :: <time>) => (year :: <integer>);  // 1-...
-define sealed generic time-month        (t :: <time>) => (month :: <month>);
-// TODO: time-day-of-year
-define sealed generic time-day-of-month (t :: <time>) => (day :: <integer>);   // 1-31
-define sealed generic time-day-of-week  (t :: <time>) => (day :: <day>);
-define sealed generic time-hour         (t :: <time>) => (hour :: <integer>);  // 0-23
-define sealed generic time-minute       (t :: <time>) => (minute :: <integer>); // 0-59
-define sealed generic time-second       (t :: <time>) => (second :: <integer>); // 0-60
-// TODO: time-millisecond
-// TODO: time-microsecond
-define sealed generic time-nanosecond   (t :: <time>) => (nanosecond :: <integer>);
-define sealed generic time-zone         (t :: <time>) => (zone :: <zone>);
+  = make(<time>, days: 0, nanoseconds: 0);
 
 // TODO: as-unix-time (not sure of name yet)
 
@@ -54,27 +32,25 @@ define sealed generic time-zone         (t :: <time>) => (zone :: <zone>);
 // (e.g., logging?), provide an API that allows them to be reinitialized from the current
 // time or from another `<time>` without any additional allocation.
 
-// Returns the current time. If `zone` is supplied then it is associated with
-// the returned time and used for display purposes.
-define sealed generic time-now (#key zone) => (t :: <time>);
+// Returns the current time provided by the system's realtime clock.
+define sealed generic time-now () => (t :: <time>);
 
-// Decompose `t` into its component parts for presentation. The zone in `time`
-// may be overridden by providing the `zone` argument.
+// Decompose `t` into its component parts for presentation. If `zone` is
+// provided (it defaults to UTC) the returned values have had the appropriate
+// zone offset applied.
 define sealed generic time-components
     (t :: <time>, #key zone)
  => (year :: <integer>, month :: <month>, day-of-month :: <integer>,
      hour :: <integer>, minute :: <integer>, second :: <integer>,
-     nanosecond :: <integer>, zone :: <zone>, day-of-week :: <day>);
+     nanosecond :: <integer>, day-of-week :: <day>);
 
-// Create a time from the given components.
+// Create a time from the given components as interpreted for the given
+// `zone`, which defaults to UTC.
 define sealed generic compose-time
     (year :: <integer>, month :: <month>, day :: <integer>,
      hour :: <integer>, minute :: <integer>, second :: <integer>,
-     nanosecond :: <integer>, zone :: <zone>)
+     nanosecond :: <integer>, #key zone)
  => (t :: <time>);
-
-define generic time-in-zone
-    (t :: <time>, zone :: <zone>) => (t2 :: <time>);
 
 // The zone in `time` may be overridden by providing the `zone` argument.
 define sealed generic format-time
@@ -295,7 +271,8 @@ end function;
 
 define method compose-time
     (year :: <integer>, mon :: <month>, day :: <integer>, hour :: <integer>,
-     min :: <integer>, sec :: <integer>, nano :: <integer>, zone :: <zone>)
+     min :: <integer>, sec :: <integer>, nano :: <integer>,
+     #key zone :: <zone> = $utc)
  => (t :: <time>)
   let days = days-from-civil(year, month-number(mon), day);
   let nanoseconds = (hour * 60 * 60_000_000_000
@@ -305,18 +282,10 @@ define method compose-time
   // TODO: this call to zone-offset-seconds ends up calling time-now() if `zone` is
   // aware. We shouldn't need to allocate an extra <time> to make a <time>. Make a
   // %zone-offset that accepts days and nanos and a %time-now that returns them?
-  let (days, nanos)
+  let (days, nanoseconds)
     = adjust-for-zone-offset(days, nanoseconds,
                              zone-offset-seconds(zone) * $nanos/second);
-  make(<time>,
-       days: days,
-       nanoseconds: nanos,
-       zone: zone)
-end method;
-
-define method time-in-zone
-    (t :: <time>, zone :: <zone>) => (t2 :: <time>)
-  make(<time>, days: t.%days, nanoseconds: t.%nanoseconds, zone: zone)
+  make(<time>, days: days, nanoseconds: nanoseconds)
 end method;
 
 // Given a number of days relative to the epoch, either positive or negative, returns the
@@ -346,19 +315,14 @@ define constant $nanos/minute :: <integer> =  60_000_000_000;
 define constant $nanos/second :: <integer> =   1_000_000_000;
 
 define method time-components
-    (t :: <time>, #key zone :: <zone>?)
+    (t :: <time>, #key zone :: <zone> = $UTC)
  => (y :: <integer>, mon :: <month>, d :: <integer>, h :: <integer>,
-     min :: <integer>, sec :: <integer>, nano :: <integer>, zone :: <zone>,
-     dow :: <day>)
+     min :: <integer>, sec :: <integer>, nano :: <integer>, dow :: <day>)
+  let offset-nanos = -(zone-offset-seconds(zone, time: t) * $nanos/second);
+  let (days, nanos) = adjust-for-zone-offset(t.%days, t.%nanoseconds, offset-nanos);
   // TODO: it would be faster to bit-pack the hour/minute/second/nanos as
   // separate numbers (30+6+6+5=47 bits required) rather than doing all this
   // division.
-
-  // Adjust days and nanos for the zone offset. We negate it because we're
-  // going from UTC to local.
-  let offset-nanos = -(zone-offset-seconds(zone | t.%zone, time: t) * $nanos/second);
-  let (days, nanos) = adjust-for-zone-offset(t.%days, t.%nanoseconds, offset-nanos);
-
   let (year, month, day) = civil-from-days(days);
   let month = as(<month>, month);
   let hour = floor/(nanos, $nanos/hour);
@@ -368,71 +332,21 @@ define method time-components
   let second = floor/(nanos, $nanos/second);
   let nano = nanos - second * $nanos/second;
   // Note: we return the zone to mirror encode-time.
-  values(year, month, day, hour, minute, second, nano, t.%zone,
+  values(year, month, day, hour, minute, second, nano,
          // TODO: day of week
          $monday)
 end method;
 
-define method time-year (t :: <time>) => (year :: <integer>)
-  civil-from-days(t.%days)      // return first value
-end;
-
-define method time-month (t :: <time>) => (month :: <month>)
-  let (_, month) = civil-from-days(t.%days);
-  as(<month>, month)
-end;
-
-define method time-day-of-month (t :: <time>) => (day-of-month :: <integer>)
-  let (_, _, day-of-month) = civil-from-days(t.%days);
-  day-of-month
-end;
-
-define method time-day-of-week (t :: <time>) => (_ :: <day>)
-  let (_, _, _, _, _, _, _, _, day-of-week) = time-components(t);
-  day-of-week
-end;
-
-define method time-hour (t :: <time>) => (hour :: <integer>)
-  // TODO: no need to compute all time components.
-  let (_, _, _, hour) = time-components(t);
-  hour
-end;
-
-define method time-minute (t :: <time>) => (minute :: <integer>)
-  // TODO: no need to compute all time components.
-  let (_, _, _, _, minute) = time-components(t);
-  minute
-end;
-
-define method time-second (t :: <time>) => (second :: <integer>)
-  // TODO: no need to compute all time components.
-  let (_, _, _, _, _, second) = time-components(t);
-  second
-end;
-
-define method time-nanosecond (t :: <time>) => (nanosecond :: <integer>)
-  // TODO: no need to compute all time components.
-  let (_, _, _, _, _, _, nanosecond) = time-components(t);
-  nanosecond
-end;
-
-define method time-zone (t :: <time>) => (zone :: <zone>)
-  t.%zone
-end;
-
 
 // --- Current time ---
 
-// Returns the current time in the local time zone, or in `zone` if supplied.
-// For example, time-now(zone: $utc) returns the current UTC time.
-//
-define method time-now (#key zone :: <zone> = local-time-zone()) => (t :: <time>)
+// Returns the current time provided by the system's realtime clock.
+define method time-now () => (t :: <time>)
   let spec = make(<timespec*>);
   let result = clock-gettime(get-clock-realtime(), spec);
   make(<time>,
        days: floor/(spec.timespec-seconds, 24 * 60 * 60),
-       nanoseconds: spec.timespec-nanoseconds * 24 * 60 * 60,
-       zone: zone)
+       nanoseconds: spec.timespec-nanoseconds * 24 * 60 * 60)
 end method;
 
 
@@ -602,11 +516,10 @@ define table $short-name-to-month :: <string-table> = {
 };
 
 define constant $minimum-time :: <time>
-  = make(<time>, days: $minimum-integer, nanoseconds: 0, zone: $utc);
+  = make(<time>, days: $minimum-integer, nanoseconds: 0);
 
 // TODO: this may not be exactly right, considering leap seconds.
 define constant $maximum-time :: <time>
   = make(<time>,
          days: $maximum-integer,
-         nanoseconds: duration-nanoseconds($day - $nanosecond),
-         zone: $utc);
+         nanoseconds: duration-nanoseconds($day - $nanosecond));

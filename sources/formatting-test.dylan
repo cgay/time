@@ -113,20 +113,20 @@ define test test-rfc3339-format ()
   // Verify that negative zone offset overflow displays as previous day.
   assert-equal("1969-12-31T19:00:00.000000-05:00",
                with-output-to-string (s)
-                 let t = time-in-zone($epoch, make(<naive-zone>,
-                                                   offset-seconds: -5 * 60 * 60,
-                                                   name: "x"));
-                 format-time(s, $rfc3339-microseconds, t)
+                 format-time(s, $rfc3339-microseconds, $epoch,
+                             zone: make(<naive-zone>,
+                                        offset-seconds: -5 * 60 * 60,
+                                        name: "x"))
                end);
   // Verify that positive zone offset overflow displays as next day.
   // (Throw in a test for leap day Feb 29 because why not.)
   assert-equal("2020-02-29T00:00:00.000000+05:00",
                with-output-to-string (s)
-                 let t = time-in-zone(compose-time(2020, $february, 28, 19, 0, 0, 0, $utc),
-                                      make(<naive-zone>,
-                                           offset-seconds: 5 * 60 * 60,
-                                           name: "x"));
-                 format-time(s, $rfc3339-microseconds, t)
+                 let t = compose-time(2020, $february, 28, 19, 0, 0, 0);
+                 format-time(s, $rfc3339-microseconds, t,
+                             zone: make(<naive-zone>,
+                                        offset-seconds: 5 * 60 * 60,
+                                        name: "x"))
                end);
 end test;
 

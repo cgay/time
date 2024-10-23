@@ -25,16 +25,7 @@ define module time
     // Time
     <time>,
     time-now,
-    time-components,            // returns the following nine values, in order
-      time-year,
-      time-month,
-      time-day-of-month,
-      time-hour,
-      time-minute,
-      time-second,
-      time-nanosecond,
-      time-zone,
-      time-day-of-week,
+    time-components,            // => year, month, day, hour, minute, second, nanosecond
     $epoch,
     $minimum-time,
     $maximum-time,
@@ -68,7 +59,6 @@ define module time
     // Conversions
     compose-time,               // make a <time> from its components
     time-components,            // break a <time> into its components
-    time-in-zone,
     parse-time,                 // TODO: $iso-8601-format etc?
     parse-duration,
     parse-day,                  // TODO: not sure about this

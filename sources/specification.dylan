@@ -3,22 +3,13 @@ Module: time-test-suite
 define interface-specification-suite time-specification-suite ()
   // Time
   sealed instantiable class <time> (<object>);
-  function time-now(#"key", #"zone") => (<time>);
+  function time-now() => (<time>);
   sealed generic function compose-time
-      (<integer>, <month>, <integer>, <integer>, <integer>, <integer>, <integer>, <zone>)
+      (<integer>, <month>, <integer>, <integer>, <integer>, <integer>, <integer>, #"key", #"zone")
    => (<time>);
   sealed generic function time-components
-      (<time>)
-   => (<integer>, <month>, <integer>, <integer>, <integer>, <integer>, <integer>, <zone>, <day>);
-  sealed generic function time-year         (<time>) => (<integer>);
-  sealed generic function time-month        (<time>) => (<month>);
-  sealed generic function time-day-of-month (<time>) => (<integer>);
-  sealed generic function time-hour         (<time>) => (<integer>);
-  sealed generic function time-minute       (<time>) => (<integer>);
-  sealed generic function time-second       (<time>) => (<integer>);
-  sealed generic function time-nanosecond   (<time>) => (<integer>);
-  sealed generic function time-zone         (<time>) => (<zone>);
-  sealed generic function time-day-of-week  (<time>) => (<day>);
+      (<time>, #"key", #"zone")
+   => (<integer>, <month>, <integer>, <integer>, <integer>, <integer>, <integer>, <day>);
   constant $epoch :: <time>;
 
   // Durations
