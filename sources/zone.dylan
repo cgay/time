@@ -61,12 +61,16 @@ define method initialize (subzone :: <subzone>, #key offset-seconds :: <integer>
   check-offset(offset-seconds);
 end method;
 
-define method print-object (s :: <subzone>, stream :: <stream>) => ()
-  printing-object(s, stream)
-    format(stream, "%s o=%d dst=%= %s...",
-           s.subzone-abbrev, s.subzone-offset-seconds, s.subzone-dst?,
-           s.subzone-start-time);
-  end;
+define method print-object (subzone :: <subzone>, stream :: <stream>) => ()
+  local method doit ()
+          format(stream, "%s %s offset: %d dst: %s",
+                 subzone.subzone-start-time, subzone.subzone-abbrev,
+                 subzone.subzone-offset-seconds,
+                 iff(subzone.subzone-dst?, "yes", "no"));
+        end;
+  iff(*print-escape?*,
+      printing-object(subzone, stream) doit() end,
+      doit());
 end method;
 
 define abstract class <zone> (<object>)
@@ -119,15 +123,23 @@ define method initialize (zone :: <aware-zone>, #key subzones :: <vector>, #all-
 end method;
 
 define method print-object (zone :: <aware-zone>, stream :: <stream>) => ()
-  printing-object(zone, stream)
+  if (*print-escape?*)
+    printing-object(zone, stream)
+      format(stream, "%s, %d subzones", zone.zone-name, zone.subzones.size);
+    end;
+  else
     format(stream, "%s, %d subzones", zone.zone-name, zone.subzones.size);
   end;
 end method;
 
 define method dump-zone (zone :: <aware-zone>) => ()
   format-out("%s\n", zone);
-  for (sub in zone.subzones)
-    format-out("%s\n", sub);
+  for (sub in zone.subzones using backward-iteration-protocol,
+       first? = #t then #f)
+    // Skip first zone, which is there for internal reasons. See decode-tzif-data-block.
+    if (~first?)
+      format-out("%s\n", sub);
+    end;
   end;
 end method;
 
