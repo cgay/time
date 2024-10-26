@@ -54,7 +54,7 @@ define constant $version-2-example-bytes
 // Example B.3.  Truncated Version 3 File Representing Asia/Jerusalem
 // Note that the values in the v2 header, starting at byte 064, are incorrect in the RFC.
 // The header integer values should be 1 1 0 1 1 4 but in the RFC they are 3 3 0 3 3 8.
-// The bug has been fixed here and reported to the RFC authors.
+// The bug has been fixed here and reported here: https://www.rfc-editor.org/errata/eid6757
 define constant $version-3-example-bytes
   = as(<byte-vector>,
        #[#x54, #x5a, #x69, #x66, #x33, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00,
@@ -252,6 +252,9 @@ define test test-us-eastern-sanity-check (expected-to-fail-reason: "aware zones 
 
   // {<subzone> EST o=-18000 dst=#f 2021-11-07T06:00:00.0Z...}
   // {<subzone> EDT o=-14400 dst=#t 2021-03-14T07:00:00.0Z...}
+
+  // From US/Eastern TZif file according to zdump.py:
+  // 2021-03-14 07:00:00 UTC = 2021-03-14 03:00:00 EDT   isdst=1 +1
 
   // At 2021-03-14T06:59:59.999999999Z is it still EST?
   let t1 = compose-time(2021, $march, 14, 6, 59, 59, 999_999_999);

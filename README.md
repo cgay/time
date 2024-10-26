@@ -138,3 +138,5 @@ The library API can be logically separated into several parts:
 * https://stackoverflow.com/questions/11188621/how-can-i-convert-seconds-since-the-epoch-to-hours-minutes-seconds-in-java/11197532#11197532
 * https://stackoverflow.com/questions/7960318/math-to-convert-seconds-since-1970-into-date-and-vice-versa
 * https://naggum.no/lugm-time.html
+* `~/repos/cpython/Tools/tz/zdump.py US/Eastern` is a useful way to see what's
+  in a TZif file in /usr/share/zoneinfo/.

@@ -86,7 +86,11 @@ define module time
     zone-offset-string,
     find-zone,
     local-time-zone,
-    $utc;
+    $utc,
+
+    // For tzifdump
+    dump-zone,
+    load-tzif-file;
 end module time;
 
 // Implementation
@@ -128,7 +132,6 @@ define module %time
     <subzone>,
     subzones,
     subzone-start-time,
-    dump-zone,
     $min-offset-seconds,
     $max-offset-seconds,
 
@@ -136,7 +139,6 @@ define module %time
     <tzif>,
     bytes-to-int32,
     bytes-to-int64,
-    load-tzif-file,
     load-zone,
     load-all-zones,
     tzif-version,

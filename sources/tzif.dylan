@@ -22,9 +22,17 @@ end function;
 
 // --- Debugging ---
 
-// zdump can be useful for debugging TZif:
-// ./tzdb/zdump -V /usr/share/zoneinfo/Hongkong
+// There are several ways to debug TZif files:
+//   (1) Our very own tzifdump executable, to see what we think.
+//   (2) zdump, from https://github.com/eggert/tz, shows all transitions, not
+//       simply what the TZif file says:
+//         zdump -V /usr/share/zoneinfo/Hongkong
+//   (3) cpython has a utility to show the TZif file contents:
+//         ~/repos/cpython/Tools/tz/zdump.py US/Eastern
 
+// This is probably not what you're looking for. Maybe you want to dump a TZif
+// file? See just above. This will spew out low-level info about each loaded
+// TZif file.
 define variable *debug-tzif?* = #f;
 
 define function debug-tzif (fmt, #rest args)
@@ -138,7 +146,7 @@ define constant $tzif-header-octet-count = 44;
 // Load a TZif format file. Signal an error if it isn't TZif format or claims
 // to be but is malformatted.
 define function load-tzif-file
-    (name :: <string>, file :: <file-locator>) => (zone :: <zone>?)
+    (name :: <string>, file :: <file-locator>) => (zone :: <aware-zone>)
   with-open-file (stream = file, direction: #"input", element-type: <byte>)
     let data = read-to-end(stream);
     let tzif = make(<tzif>,
