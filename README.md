@@ -133,7 +133,7 @@ The library API can be logically separated into several parts:
   very enlightening about the distinctions between various time concepts.
 * [This blog post](https://codeblog.jonskeet.uk/2010/12/01/the-joys-of-date-time-arithmetic/)
   on some of the oddities of date/time arithmetic.
-* [RFC 8536, TZif format](https://tools.ietf.org/html/rfc8536)
+* [RFC 9636, TZif format](https://datatracker.ietf.org/doc/html/rfc9636)
 * Calendrical Calculations -- The Ultimate Edition -- by Reingold and Dershowitz
 * https://stackoverflow.com/questions/11188621/how-can-i-convert-seconds-since-the-epoch-to-hours-minutes-seconds-in-java/11197532#11197532
 * https://stackoverflow.com/questions/7960318/math-to-convert-seconds-since-1970-into-date-and-vice-versa
