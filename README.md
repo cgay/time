@@ -140,3 +140,5 @@ The library API can be logically separated into several parts:
 * https://naggum.no/lugm-time.html
 * `~/repos/cpython/Tools/tz/zdump.py US/Eastern` is a useful way to see what's
   in a TZif file in /usr/share/zoneinfo/.
+* https://ssoready.com/blog/engineering/truths-programmers-timezones/ has some useful
+  edge cases to make sure we support.
