@@ -11,23 +11,27 @@ define test test-naive-zone-offsets ()
   assert-no-errors(make(<naive-zone>, offset-seconds: 203, name: "x"));
 end test;
 
-define function subzone
-    (time, offset, abbrev, dst?) => (_ :: <subzone>)
-  make(<subzone>, start-time: time, offset-seconds: offset, abbrev: abbrev, dst?: dst?)
-end;
+define function transition
+    (time, offset, abbrev, dst?) => (_ :: <transition>)
+  make(<transition>,
+       utc-seconds: time.to-utc-seconds,
+       offset-seconds: offset,
+       abbreviation: abbrev,
+       dst?: dst?)
+end function;
 
 define test test-aware-zone-offsets ()
-  assert-no-errors(subzone($epoch, $min-offset-seconds, "min", #t));
-  assert-no-errors(subzone($epoch, $max-offset-seconds, "max", #t));
-  assert-signals(<time-error>, subzone($epoch, $min-offset-seconds - 1, "min-1", #t));
-  assert-signals(<time-error>, subzone($epoch, $max-offset-seconds + 1, "max+1", #t));
+  assert-no-errors(transition($epoch, $min-offset-seconds, "min", #t));
+  assert-no-errors(transition($epoch, $max-offset-seconds, "max", #t));
+  assert-signals(<time-error>, transition($epoch, $min-offset-seconds - 1, "min-1", #t));
+  assert-signals(<time-error>, transition($epoch, $max-offset-seconds + 1, "max+1", #t));
 
   let now = time-now();
   let zone = make(<aware-zone>,
                   name: "Zone",
-                  subzones: vector(subzone(now, 100, "EST", #t),
-                                   subzone($epoch + $hour, 90, "EST", #t),
-                                   subzone($epoch, 80, "EST", #t)));
+                  transitions: vector(transition(now, 100, "EST", #t),
+                                      transition($epoch + $hour, 90, "EST", #t),
+                                      transition($epoch, 80, "EST", #t)));
 
   assert-equal(80, zone-offset-seconds(zone, time: $epoch + $minute));
   assert-equal(90, zone-offset-seconds(zone, time: $epoch + 2 * $hour));

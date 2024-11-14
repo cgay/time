@@ -75,7 +75,7 @@ end test;
 define test test-format-duration ()
   let cases
     = list(list("9ns", "0.000000009 seconds", 9),
-           list("0s", "0 seconds", 0),
+           list("0ns", "0 nanoseconds", 0),
            list("-2ns", "-0.000000002 seconds", -2),
            list("1ns", "0.000000001 seconds", 1),
            list("1w1d1h1m1s1ms1u1ns", "1 week 1 day 1 hour 1 minute 1.001001001 seconds",

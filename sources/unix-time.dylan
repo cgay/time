@@ -73,24 +73,24 @@ end function;
 // specifies a bunch of $TZ formats that we won't support because Python
 // doesn't either. I'm assuming they're obsolete.
 define function find-zone-from-environment
-    (root-directory :: <string>) => (zone :: <zone>?)
+    (root-directory :: <string>) => (zone :: <zone?>)
   // TODO
 end function;
 
 define function find-zone-from-etc-timezone
-    (root-directory :: <string>) => (zone :: <zone>?)
+    (root-directory :: <string>) => (zone :: <zone?>)
   // TODO
 end function;
 
 define function find-zone-from-etc-sysconfig-clock
-    (root-directory :: <string>) => (zone :: <zone>?)
+    (root-directory :: <string>) => (zone :: <zone?>)
   // TODO
 end function;
 
 // systemd distributions use symlinks that include the zone name.
 // Ex: /etc/localtime -> /usr/share/zoneinfo/UTC
 define function find-zone-from-systemd-link
-    (root-directory :: <string>) => (zone :: <zone>?)
+    (root-directory :: <string>) => (zone :: <zone?>)
   let filename = concatenate(root-directory, "etc/localtime");
   if (file-exists?(filename))
     let real-path = resolve-locator(as(<file-locator>, filename));
@@ -100,7 +100,7 @@ define function find-zone-from-systemd-link
 end function;
 
 define function find-zone-from-etc-localtime
-    (root-directory :: <string>) => (zone :: <zone>?)
+    (root-directory :: <string>) => (zone :: <zone?>)
   // TODO
 end function;
 

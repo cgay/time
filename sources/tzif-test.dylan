@@ -3,69 +3,360 @@ Module: time-test-suite
 // We currently have no way to reference data files from our tests, so I've encoded the
 // data below instead.
 
-// --- Example data files from RFC 8536. ---
+// --- Example data files from RFC 9636. ---
 
 // Example B.1.  Version 1 File Representing UTC (with Leap Seconds)
+// https://datatracker.ietf.org/doc/html/rfc9636#appendix-B.1
 define constant $version-1-example-bytes
   = as(<byte-vector>,
-       #[#x54, #x5a, #x69, #x66, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00,
-         #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x01, #x00, #x00, #x00, #x01, #x00, #x00, #x00, #x1b,
-         #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x01, #x00, #x00, #x00, #x04, #x00, #x00, #x00, #x00,
-         #x00, #x00, #x55, #x54, #x43, #x00, #x04, #xb2, #x58, #x00, #x00, #x00, #x00, #x01, #x05, #xa4,
-         #xec, #x01, #x00, #x00, #x00, #x02, #x07, #x86, #x1f, #x82, #x00, #x00, #x00, #x03, #x09, #x67,
-         #x53, #x03, #x00, #x00, #x00, #x04, #x0b, #x48, #x86, #x84, #x00, #x00, #x00, #x05, #x0d, #x2b,
-         #x0b, #x85, #x00, #x00, #x00, #x06, #x0f, #x0c, #x3f, #x06, #x00, #x00, #x00, #x07, #x10, #xed,
-         #x72, #x87, #x00, #x00, #x00, #x08, #x12, #xce, #xa6, #x08, #x00, #x00, #x00, #x09, #x15, #x9f,
-         #xca, #x89, #x00, #x00, #x00, #x0a, #x17, #x80, #xfe, #x0a, #x00, #x00, #x00, #x0b, #x19, #x62,
-         #x31, #x8b, #x00, #x00, #x00, #x0c, #x1d, #x25, #xea, #x0c, #x00, #x00, #x00, #x0d, #x21, #xda,
-         #xe5, #x0d, #x00, #x00, #x00, #x0e, #x25, #x9e, #x9d, #x8e, #x00, #x00, #x00, #x0f, #x27, #x7f,
-         #xd1, #x0f, #x00, #x00, #x00, #x10, #x2a, #x50, #xf5, #x90, #x00, #x00, #x00, #x11, #x2c, #x32,
-         #x29, #x11, #x00, #x00, #x00, #x12, #x2e, #x13, #x5c, #x92, #x00, #x00, #x00, #x13, #x30, #xe7,
-         #x24, #x13, #x00, #x00, #x00, #x14, #x33, #xb8, #x48, #x94, #x00, #x00, #x00, #x15, #x36, #x8c,
-         #x10, #x15, #x00, #x00, #x00, #x16, #x43, #xb7, #x1b, #x96, #x00, #x00, #x00, #x17, #x49, #x5c,
-         #x07, #x97, #x00, #x00, #x00, #x18, #x4f, #xef, #x93, #x18, #x00, #x00, #x00, #x19, #x55, #x93,
-         #x2d, #x99, #x00, #x00, #x00, #x1a, #x58, #x68, #x46, #x9a, #x00, #x00, #x00, #x1b, #x00, #x00]);
+       #[#x54, #x5a, #x69, #x66, //     magic   "TZif"
+         #x00,                   //     version 0 (1)
+         #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, // unused (15)
+         #x00, #x00, #x00, #x00, #x00, #x00, #x00,
+         #x00, #x00, #x00, #x01, //     isutcnt 1
+         #x00, #x00, #x00, #x01, //     isstdcnt 1
+         #x00, #x00, #x00, #x1b, //     leapcnt 27
+         #x00, #x00, #x00, #x00, //     timecnt 0
+         #x00, #x00, #x00, #x01, //     typecnt 1
+         #x00, #x00, #x00, #x04, //     charcnt 4
+         // localtimetype[0]
+         #x00, #x00, #x00, #x00, //     utoff   0 (+00:00)
+         #x00,                   //     isdst   0 (no)
+         #x00,                   //     desigidx 0
+         #x55, #x54, #x43, #x00, //     designations[0] "UTC\0"
+         // leapsecond[0]
+         #x04, #xb2, #x58, #x00, //     occurrence      78796800 (1972-06-30T23:59:60Z)
+         #x00, #x00, #x00, #x01, //     correction      1
+         // leapsecond[1]
+         #x05, #xa4, #xec, #x01, //     occurrence      94694401 (1972-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x02, //     correction      2
+         // leapsecond[2]
+         #x07, #x86, #x1f, #x82, //     occurrence      126230402 (1973-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x03, //     correction      3
+         // leapsecond[3]
+         #x09, #x67, #x53, #x03, //     occurrence      157766403 (1974-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x04, //     correction      4
+         // leapsecond[4]
+         #x0b, #x48, #x86, #x84, //     occurrence      189302404 (1975-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x05, //     correction      5
+         // leapsecond[5]
+         #x0d, #x2b, #x0b, #x85, //     occurrence      220924805 (1976-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x06, //     correction      6
+         // leapsecond[6]
+         #x0f, #x0c, #x3f, #x06, //     occurrence      252460806 (1977-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x07, //     correction      7
+         // leapsecond[7]
+         #x10, #xed, #x72, #x87, //     occurrence      283996807 (1978-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x08, //     correction      8
+         // leapsecond[8]
+         #x12, #xce, #xa6, #x08, //     occurrence      315532808 (1979-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x09, //     correction      9
+         // leapsecond[9]
+         #x15, #x9f, #xca, #x89, //     occurrence      362793609 (1981-06-30T23:59:60Z)
+         #x00, #x00, #x00, #x0a, //     correction      10
+         // leapsecond[10]
+         #x17, #x80, #xfe, #x0a, //     occurrence      394329610 (1982-06-30T23:59:60Z)
+         #x00, #x00, #x00, #x0b, //     correction      11
+         // leapsecond[11]
+         #x19, #x62, #x31, #x8b, //     occurrence      425865611 (1983-06-30T23:59:60Z)
+         #x00, #x00, #x00, #x0c, //     correction      12
+         // leapsecond[12]
+         #x1d, #x25, #xea, #x0c, //     occurrence      489024012 (1985-06-30T23:59:60Z)
+         #x00, #x00, #x00, #x0d, //     correction      13
+         // leapsecond[13]
+         #x21, #xda, #xe5, #x0d, //     occurrence      567993613 (1987-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x0e, //     correction      14
+         // leapsecond[14]
+         #x25, #x9e, #x9d, #x8e, //     occurrence      631152014 (1989-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x0f, //     correction      15
+         // leapsecond[15]
+         #x27, #x7f, #xd1, #x0f, //     occurrence      662688015 (1990-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x10, //     correction      16
+         // leapsecond[16]
+         #x2a, #x50, #xf5, #x90, //     occurrence      709948816 (1992-06-30T23:59:60Z)
+         #x00, #x00, #x00, #x11, //     correction      17
+         // leapsecond[17]
+         #x2c, #x32, #x29, #x11, //     occurrence      741484817 (1993-06-30T23:59:60Z)
+         #x00, #x00, #x00, #x12, //     correction      18
+         // leapsecond[18]
+         #x2e, #x13, #x5c, #x92, //     occurrence      773020818 (1994-06-30T23:59:60Z)
+         #x00, #x00, #x00, #x13, //     correction      19
+         // leapsecond[19]
+         #x30, #xe7, #x24, #x13, //     occurrence      820454419 (1995-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x14, //     correction      20
+         // leapsecond[20]
+         #x33, #xb8, #x48, #x94, //     occurrence      867715220 (1997-06-30T23:59:60Z)
+         #x00, #x00, #x00, #x15, //     correction      21
+         // leapsecond[21]
+         #x36, #x8c, #x10, #x15, //     occurrence      915148821 (1998-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x16, //     correction      22
+         // leapsecond[22]
+         #x43, #xb7, #x1b, #x96, //     occurrence      1136073622 (2005-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x17, //     correction      23
+         // leapsecond[23]
+         #x49, #x5c, #x07, #x97, //     occurrence      1230768023 (2008-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x18, //     correction      24
+         // leapsecond[24]
+         #x4f, #xef, #x93, #x18, //     occurrence      1341100824 (2012-06-30T23:59:60Z)
+         #x00, #x00, #x00, #x19, //     correction      25
+         // leapsecond[25]
+         #x55, #x93, #x2d, #x99, //     occurrence      1435708825 (2015-06-30T23:59:60Z)
+         #x00, #x00, #x00, #x1a, //     correction      26
+         // leapsecond[26]
+         #x58, #x68, #x46, #x9a, //     occurrence      1483228826 (2016-12-31T23:59:60Z)
+         #x00, #x00, #x00, #x1b, //     correction      27
+         #x00,                   //     standard/wall[0]        0 (wall)
+         #x00]);                 //     UT/local[0]             0 (local)
+
+define test test-load-tzif-version-1 ()
+  let tzif = make(<tzif>,
+                  name: "UTC",
+                  data: $version-1-example-bytes,
+                  source: "$version-1-example-bytes");
+  let zone = load-zone(tzif);   // mutates tzif
+  expect-equal(1, tzif.%version);
+  expect-equal(272, tzif.%end-of-v1-data);
+  expect-equal(-1, tzif.%end-of-v2-data); // no v2+ data
+  expect-equal(1, tzif.%is-utc-count);
+  expect-equal(1, tzif.%is-std-count);
+  expect-equal(27, tzif.%leap-count);
+  expect-equal(0, tzif.%time-count);
+  expect-equal(1, tzif.%type-count);
+  expect-equal(4, tzif.%char-count);
+  expect-equal(0, zone.%transitions.size);
+  // TODO: check leap second data
+end test;
 
 // Example B.2.  Version 2 File Representing Pacific/Honolulu
 define constant $version-2-example-bytes
   = as(<byte-vector>,
-       #[#x54, #x5a, #x69, #x66, #x32, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00,
-         #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x06, #x00, #x00, #x00, #x06, #x00, #x00, #x00, #x00,
-         #x00, #x00, #x00, #x07, #x00, #x00, #x00, #x06, #x00, #x00, #x00, #x14, #x80, #x00, #x00, #x00,
-         #xbb, #x05, #x43, #x48, #xbb, #x21, #x71, #x58, #xcb, #x89, #x3d, #xc8, #xd2, #x23, #xf4, #x70,
-         #xd2, #x61, #x49, #x38, #xd5, #x8d, #x73, #x48, #x01, #x02, #x01, #x03, #x04, #x01, #x05, #xff,
-         #xff, #x6c, #x02, #x00, #x00, #xff, #xff, #x6c, #x58, #x00, #x04, #xff, #xff, #x7a, #x68, #x01,
-         #x08, #xff, #xff, #x7a, #x68, #x01, #x0c, #xff, #xff, #x7a, #x68, #x01, #x10, #xff, #xff, #x73,
-         #x60, #x00, #x04, #x4c, #x4d, #x54, #x00, #x48, #x53, #x54, #x00, #x48, #x44, #x54, #x00, #x48,
-         #x57, #x54, #x00, #x48, #x50, #x54, #x00, #x00, #x00, #x00, #x00, #x01, #x00, #x00, #x00, #x00,
-         #x00, #x01, #x00, #x54, #x5a, #x69, #x66, #x32, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00,
-         #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x06, #x00, #x00, #x00, #x06, #x00,
-         #x00, #x00, #x00, #x00, #x00, #x00, #x07, #x00, #x00, #x00, #x06, #x00, #x00, #x00, #x14, #xff,
-         #xff, #xff, #xff, #x74, #xe0, #x70, #xbe, #xff, #xff, #xff, #xff, #xbb, #x05, #x43, #x48, #xff,
-         #xff, #xff, #xff, #xbb, #x21, #x71, #x58, #xff, #xff, #xff, #xff, #xcb, #x89, #x3d, #xc8, #xff,
-         #xff, #xff, #xff, #xd2, #x23, #xf4, #x70, #xff, #xff, #xff, #xff, #xd2, #x61, #x49, #x38, #xff,
-         #xff, #xff, #xff, #xd5, #x8d, #x73, #x48, #x01, #x02, #x01, #x03, #x04, #x01, #x05, #xff, #xff,
-         #x6c, #x02, #x00, #x00, #xff, #xff, #x6c, #x58, #x00, #x04, #xff, #xff, #x7a, #x68, #x01, #x08,
-         #xff, #xff, #x7a, #x68, #x01, #x0c, #xff, #xff, #x7a, #x68, #x01, #x10, #xff, #xff, #x73, #x60,
-         #x00, #x04, #x4c, #x4d, #x54, #x00, #x48, #x53, #x54, #x00, #x48, #x44, #x54, #x00, #x48, #x57,
-         #x54, #x00, #x48, #x50, #x54, #x00, #x00, #x00, #x00, #x00, #x01, #x00, #x00, #x00, #x00, #x00,
-         #x01, #x00, #x0a, #x48, #x53, #x54, #x31, #x30, #x0a]);
+       #[#x54, #x5a, #x69, #x66, //     magic   "TZif"
+         #x32,                   //     version '2' (2)
+         #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, // unused (15)
+         #x00, #x00, #x00, #x00, #x00, #x00, #x00,
+         #x00, #x00, #x00, #x06, //     isutcnt 6
+         #x00, #x00, #x00, #x06, //     isstdcnt        6
+         #x00, #x00, #x00, #x00, //     leapcnt 0
+         #x00, #x00, #x00, #x07, //     timecnt 7
+         #x00, #x00, #x00, #x06, //     typecnt 6
+         #x00, #x00, #x00, #x14, //     charcnt 20
+         #x80, #x00, #x00, #x00, //     trans time[0]   -2147483648 (1901-12-13T20:45:52Z)
+         #xbb, #x05, #x43, #x48, //     trans time[1]   -1157283000 (1933-04-30T12:30:00Z)
+         #xbb, #x21, #x71, #x58, //     trans time[2]   -1155436200 (1933-05-21T21:30:00Z)
+         #xcb, #x89, #x3d, #xc8, //     trans time[3]   -880198200 (1942-02-09T12:30:00Z)
+         #xd2, #x23, #xf4, #x70, //     trans time[4]   -769395600 (1945-08-14T23:00:00Z)
+         #xd2, #x61, #x49, #x38, //     trans time[5]   -765376200 (1945-09-30T11:30:00Z)
+         #xd5, #x8d, #x73, #x48, //     trans time[6]   -712150200 (1947-06-08T12:30:00Z)
+         #x01,                   //     trans type[0]   1
+         #x02,                   //     trans type[1]   2
+         #x01,                   //     trans type[2]   1
+         #x03,                   //     trans type[3]   3
+         #x04,                   //     trans type[4]   4
+         #x01,                   //     trans type[5]   1
+         #x05,                   //     trans type[6]   5
+         // localtimetype[0]
+         #xff, #xff, #x6c, #x02, //     utoff   -37886 (-10:31:26)
+         #x00,                   //     isdst   0 (no)
+         #x00,                   //     desigidx        0
+         // localtimetype[1]
+         #xff, #xff, #x6c, #x58, //     utoff   -37800 (-10:30)
+         #x00,                   //     isdst   0 (no)
+         #x04,                   //     desigidx        4
+         // localtimetype[2]
+         #xff, #xff, #x7a, #x68, //     utoff   -34200 (-09:30)
+         #x01,                   //     isdst   1 (yes)
+         #x08,                   //     desigidx        8
+         // localtimetype[3]
+         #xff, #xff, #x7a, #x68, //     utoff   -34200 (-09:30)
+         #x01,                   //     isdst   1 (yes)
+         #x0c,                   //     desigidx        12
+         // localtimetype[4]
+         #xff, #xff, #x7a, #x68, //     utoff   -34200 (-09:30)
+         #x01,                   //     isdst   1 (yes)
+         #x10,                   //     desigidx        16
+         // localtimetype[5]
+         #xff, #xff, #x73, #x60, //     utoff   -36000 (-10:00)
+         #x00,                   //     isdst   0 (no)
+         #x04,                   //     desigidx        4
+         #x4c, #x4d, #x54, #x00, //     designations[0] "LMT\0"
+         #x48, #x53, #x54, #x00, //     designations[4] "HST\0"
+         #x48, #x44, #x54, #x00, //     designations[8] "HDT\0"
+         #x48, #x57, #x54, #x00, //     designations[12]        "HWT\0"
+         #x48, #x50, #x54, #x00, //     designations[16]        "HPT\0"
+         #x00,                   //     standard/wall[0]        0 (wall)
+         #x00,                   //     standard/wall[1]        0 (wall)
+         #x00,                   //     standard/wall[2]        0 (wall)
+         #x00,                   //     standard/wall[3]        0 (wall)
+         #x01,                   //     standard/wall[4]        1 (standard)
+         #x00,                   //     standard/wall[5]        0 (wall)
+         #x00,                   //     UT/local[0]     0 (local)
+         #x00,                   //     UT/local[1]     0 (local)
+         #x00,                   //     UT/local[2]     0 (local)
+         #x00,                   //     UT/local[3]     0 (local)
+         #x01,                   //     UT/local[4]     1 (UT)
+         #x00,                   //     UT/local[5]     0 (local)
+         #x54, #x5a, #x69, #x66, //     magic   "TZif"
+         #x32,                   //     version '2' (2)
+         #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00,
+         #x00, #x00, #x00, #x00, #x00, #x00, #x00,
+         #x00, #x00, #x00, #x06, //     isutcnt 6
+         #x00, #x00, #x00, #x06, //     isstdcnt        6
+         #x00, #x00, #x00, #x00, //     leapcnt 0
+         #x00, #x00, #x00, #x07, //     timecnt 7
+         #x00, #x00, #x00, #x06, //     typecnt 6
+         #x00, #x00, #x00, #x14, //     charcnt 20
+         #xff, #xff, #xff, #xff, #x74, #xe0, #x70, #xbe, // trans time[0]   -2334101314 (1896-01-13T22:31:26Z)
+         #xff, #xff, #xff, #xff, #xbb, #x05, #x43, #x48, // trans time[1]   -1157283000 (1933-04-30T12:30:00Z)
+         #xff, #xff, #xff, #xff, #xbb, #x21, #x71, #x58, // trans time[2]   -1155436200 (1933-05-21T21:30:00Z)
+         #xff, #xff, #xff, #xff, #xcb, #x89, #x3d, #xc8, // trans time[3]   -880198200 (1942-02-09T12:30:00Z)
+         #xff, #xff, #xff, #xff, #xd2, #x23, #xf4, #x70, // trans time[4]   -769395600 (1945-08-14T23:00:00Z)
+         #xff, #xff, #xff, #xff, #xd2, #x61, #x49, #x38, // trans time[5]   -765376200 (1945-09-30T11:30:00Z)
+         #xff, #xff, #xff, #xff, #xd5, #x8d, #x73, #x48, // trans time[6]   -712150200 (1947-06-08T12:30:00Z)
+         #x01,                   //     trans type[0]   1
+         #x02,                   //     trans type[1]   2
+         #x01,                   //     trans type[2]   1
+         #x03,                   //     trans type[3]   3
+         #x04,                   //     trans type[4]   4
+         #x01,                   //     trans type[5]   1
+         #x05,                   //     trans type[6]   5
+         // localtimetype[0]
+         #xff, #xff, #x6c, #x02, //     utoff   -37886 (-10:31:26)
+         #x00,                   //     isdst   0 (no)
+         #x00,                   //     desigidx        0
+         // localtimetype[1]
+         #xff, #xff, #x6c, #x58, //     utoff   -37800 (-10:30)
+         #x00,                   //     isdst   0 (no)
+         #x04,                   //     desigidx        4
+         // localtimetype[2]
+         #xff, #xff, #x7a, #x68, //     utoff   -34200 (-09:30)
+         #x01,                   //     isdst   1 (yes)
+         #x08,                   //     desigidx        8
+         // localtimetype[3]
+         #xff, #xff, #x7a, #x68, //     utoff   -34200 (-09:30)
+         #x01,                   //     isdst   1 (yes)
+         #x0c,                   //     desigidx        12
+         // localtimetype[4]
+         #xff, #xff, #x7a, #x68, //     utoff   -34200 (-09:30)
+         #x01,                   //     isdst   1 (yes)
+         #x10,                   //     desigidx        16
+         // localtimetype[5]
+         #xff, #xff, #x73, #x60, //     utoff   -36000 (-10:00)
+         #x00,                   //     isdst   0 (no)
+         #x04,                   //     desigidx        4
+         #x4c, #x4d, #x54, #x00, //     designations[0] "LMT\0"
+         #x48, #x53, #x54, #x00, //     designations[4] "HST\0"
+         #x48, #x44, #x54, #x00, //     designations[8] "HDT\0"
+         #x48, #x57, #x54, #x00, //     designations[12]        "HWT\0"
+         #x48, #x50, #x54, #x00, //     designations[16]        "HPT\0"
+         #x00,                   //     standard/wall[0]        0 (wall)
+         #x00,                   //     standard/wall[1]        0 (wall)
+         #x00,                   //     standard/wall[2]        0 (wall)
+         #x00,                   //     standard/wall[3]        0 (wall)
+         #x01,                   //     standard/wall[4]        1 (standard)
+         #x00,                   //     standard/wall[5]        0 (wall)
+         #x00,                   //     UT/local[0]     0 (local)
+         #x00,                   //     UT/local[1]     0 (local)
+         #x00,                   //     UT/local[2]     0 (local)
+         #x00,                   //     UT/local[3]     0 (local)
+         #x01,                   //     UT/local[4]     1 (UT)
+         #x00,                   //     UT/local[5]     0 (local)
+         #x0a,                   //     NL      '\n'
+         #x48, #x53, #x54, #x31, #x30, //  TZ string       "HST10"
+         #x0a]);                 //     NL      '\n'
+
+define test test-load-tzif-version-2 ()
+  // Note that even though the B.2 example has valid version 1 data we don't test it
+  // because we ignore v1 data in v2+ files.
+  let tzif = make(<tzif>,
+                  name: "Pacific/Honolulu",
+                  data: $version-2-example-bytes,
+                  source: "$version-2-example-bytes");
+  let zone = load-zone(tzif);
+  expect-equal(2, tzif.%version);
+  expect-equal(147, tzif.%end-of-v1-data);
+  expect-equal(322, tzif.%end-of-v2-data);
+  expect-equal(6, tzif.%is-utc-count);
+  expect-equal(6, tzif.%is-std-count);
+  expect-equal(0, tzif.%leap-count);
+  expect-equal(7, tzif.%time-count);
+  expect-equal(6, tzif.%type-count);
+  expect-equal(20, tzif.%char-count);
+  expect-equal(7, zone.%transitions.size);
+  // Remember, the transitions are reversed...
+  expect-equal(-2334101314, zone.%transitions[6].%utc-seconds); // 1896-01-13T22:31:26Z
+  expect-equal(-712150200, zone.%transitions[0].%utc-seconds);  // 1947-06-08T12:30:00Z
+end test;
 
 // Example B.3.  Truncated Version 3 File Representing Asia/Jerusalem
-// Note that the values in the v2 header, starting at byte 064, are incorrect in the RFC.
-// The header integer values should be 1 1 0 1 1 4 but in the RFC they are 3 3 0 3 3 8.
-// The bug has been fixed here and reported here: https://www.rfc-editor.org/errata/eid6757
+// https://datatracker.ietf.org/doc/html/rfc9636#appendix-B.3
 define constant $version-3-example-bytes
   = as(<byte-vector>,
-       #[#x54, #x5a, #x69, #x66, #x33, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00,
-         #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00,
-         #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x54, #x5a, #x69, #x66,
-         #x33, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00,
-         #x00, #x00, #x00, #x01, #x00, #x00, #x00, #x01, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x01,
-         #x00, #x00, #x00, #x01, #x00, #x00, #x00, #x04, #x00, #x00, #x00, #x00, #x7f, #xe8, #x17, #x80,
-         #x00, #x00, #x00, #x1c, #x20, #x00, #x00, #x49, #x53, #x54, #x00, #x01, #x01, #x0a, #x49, #x53,
-         #x54, #x2d, #x32, #x49, #x44, #x54, #x2c, #x4d, #x33, #x2e, #x34, #x2e, #x34, #x2f, #x32, #x36,
-         #x2c, #x4d, #x31, #x30, #x2e, #x35, #x2e, #x30, #x0a]);
+       #[#x54, #x5A, #x69, #x66, // magic "TZif"
+         #x33,                   // version '3' (3)
+         #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00, // unused (15)
+         #x00, #x00, #x00, #x00, #x00, #x00, #x00,
+         #x00, #x00, #x00, #x00, // isutcnt 0
+         #x00, #x00, #x00, #x00, // isstdcnt 0
+         #x00, #x00, #x00, #x00, // leapcnt 0
+         #x00, #x00, #x00, #x00, // timecnt 0
+         #x00, #x00, #x00, #x01, // typecnt 1
+         #x00, #x00, #x00, #x01, // charcnt 1
+         // localtimetype[0]
+         #x00, #x00, #x00, #x00, // utoff   0 (+00:00)
+         #x00,                   // isdst   0 (no)
+         #x00,                   // desigidx        0
+         #x00,                   // designations[0] "\0"
+         #x54, #x5a, #x69, #x66, // magic   "TZif"
+         #x33,                   // version '3' (3)
+         #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x00,
+         #x00, #x00, #x00, #x00, #x00, #x00, #x00,
+         #x00, #x00, #x00, #x00, // isutcnt 0
+         #x00, #x00, #x00, #x00, // isstdcnt 0
+         #x00, #x00, #x00, #x00, // leapcnt 0
+         #x00, #x00, #x00, #x01, // timecnt 1
+         #x00, #x00, #x00, #x02, // typecnt 2
+         #x00, #x00, #x00, #x08, // charcnt 8
+         // trans time[0]   2145916800 (2038-01-01T00:00:00Z)
+         #x00, #x00, #x00, #x00, #x7f, #xe8, #x17, #x80,
+         #x01,                   // trans type[0]   1
+         // localtimetype[0]
+         #x00, #x00, #x00, #x00, // utoff   0 (+00:00)
+         #x00,                   // isdst   0 (no)
+         #x00,                   // desigidx 0
+         // localtimetype[1]
+         #x00, #x00, #x1c, #x20, // utoff   7200 (+02:00)
+         #x00,                   // isdst   0 (no)
+         #x04,                   // desigidx 4
+         #x2d, #x30, #x30, #x00, // designations[0] "-00\0"
+         #x49, #x53, #x54, #x00, // designations[4] "IST\0"
+         #x0a,                   // NL      '\n'
+         // TZ string "IST-2IDT,M3.4.4/26,M10.5.0"
+         #x49, #x53, #x54, #x2d, #x32, #x49, #x44, #x54,
+         #x2c, #x4d, #x33, #x2e, #x34, #x2e, #x34, #x2f,
+         #x32, #x36, #x2c, #x4d, #x31, #x30, #x2e, #x35,
+         #x2e, #x30,
+         #x0a]);                // NL      '\n'
+
+define test test-load-tzif-version-3 ()
+  let tzif = make(<tzif>,
+                  name: "Asia/Jerusalem",
+                  data: $version-3-example-bytes,
+                  source: "$version-3-example-bytes");
+  let zone = load-zone(tzif);
+  expect-equal(3, tzif.%version);
+  expect-equal(51, tzif.%end-of-v1-data);
+  expect-equal(124, tzif.%end-of-v2-data);
+  expect-equal(0, tzif.%is-utc-count);
+  expect-equal(0, tzif.%is-std-count);
+  expect-equal(0, tzif.%leap-count);
+  expect-equal(1, tzif.%time-count);
+  expect-equal(2, tzif.%type-count);
+  expect-equal(8, tzif.%char-count);
+  expect-equal(1, zone.%transitions.size);
+  expect-equal(2145916800,      // 2038-01-01T00:00:00Z
+               zone.%transitions[0].%utc-seconds);
+  // TODO: footer
+end test;
 
 
 // From /usr/share/zoneinfo/Hongkong on Debian 4.19.171-2
@@ -149,65 +440,6 @@ define constant $linux-hongkong-tzif-bytes
          #x00, #x48, #x4b, #x57, #x54, #x00, #x4a, #x53, #x54, #x00, #x00, #x00, #x00, #x00, #x00, #x01,
          #x01, #x00, #x00, #x00, #x00, #x00, #x00, #x00, #x0a, #x48, #x4b, #x54, #x2d, #x38, #x0a]);
 
-define test test-load-tzif-version-1 ()
-  let tzif = make(<tzif>,
-                  name: "UTC",
-                  data: $version-1-example-bytes,
-                  source: "$version-1-example-bytes");
-  let zone = load-zone(tzif);   // mutates tzif
-  assert-equal(1, tzif.tzif-version);
-  assert-equal(272, tzif.tzif-end-of-v1-data);
-  assert-equal(-1, tzif.tzif-end-of-v2-data); // no v2+ data
-  assert-equal(1, tzif.tzif-is-utc-count);
-  assert-equal(1, tzif.tzif-is-std-count);
-  assert-equal(27, tzif.tzif-leap-count);
-  assert-equal(0, tzif.tzif-time-count);
-  assert-equal(1, tzif.tzif-type-count);
-  assert-equal(4, tzif.tzif-char-count);
-  assert-equal(1, zone.subzones.size);
-  assert-equal($minimum-time, zone.subzones[0].subzone-start-time);
-end test;
-
-define test test-load-tzif-version-2 ()
-  let tzif = make(<tzif>,
-                  name: "Pacific/Honolulu",
-                  data: $version-2-example-bytes,
-                  source: "$version-2-example-bytes");
-  let zone = load-zone(tzif);
-  assert-equal(2, tzif.tzif-version);
-  assert-equal(147, tzif.tzif-end-of-v1-data);
-  assert-equal(322, tzif.tzif-end-of-v2-data);
-  assert-equal(6, tzif.tzif-is-utc-count);
-  assert-equal(6, tzif.tzif-is-std-count);
-  assert-equal(0, tzif.tzif-leap-count);
-  assert-equal(7, tzif.tzif-time-count);
-  assert-equal(6, tzif.tzif-type-count);
-  assert-equal(20, tzif.tzif-char-count);
-  assert-equal(8, zone.subzones.size);
-  assert-equal($minimum-time, zone.subzones[7].subzone-start-time);
-  // TODO: test some of the transition times
-end test;
-
-define test test-load-tzif-version-3 ()
-  let tzif = make(<tzif>,
-                  name: "Asia/Jerusalem",
-                  data: $version-3-example-bytes,
-                  source: "$version-3-example-bytes");
-  let zone = load-zone(tzif);
-  assert-equal(3, tzif.tzif-version);
-  assert-equal(44, tzif.tzif-end-of-v1-data);
-  assert-equal(109, tzif.tzif-end-of-v2-data);
-  assert-equal(1, tzif.tzif-is-utc-count);
-  assert-equal(1, tzif.tzif-is-std-count);
-  assert-equal(0, tzif.tzif-leap-count);
-  assert-equal(1, tzif.tzif-time-count);
-  assert-equal(1, tzif.tzif-type-count);
-  assert-equal(4, tzif.tzif-char-count);
-  assert-equal(2, zone.subzones.size);
-  assert-equal($minimum-time, zone.subzones[1].subzone-start-time);
-  // TODO: test some of the transition times
-end test;
-
 define test test-load-tzif-file ()
   // Create the file
   let path = merge-locators(as(<file-locator>, "Hongkong"), test-temp-directory());
@@ -250,8 +482,8 @@ end test;
 define test test-us-eastern-sanity-check (expected-to-fail-reason: "aware zones not finished")
   let us-eastern :: <aware-zone> = find-zone("US/Eastern");
 
-  // {<subzone> EST o=-18000 dst=#f 2021-11-07T06:00:00.0Z...}
-  // {<subzone> EDT o=-14400 dst=#t 2021-03-14T07:00:00.0Z...}
+  // {<transition> EST o=-18000 dst=#f 2021-11-07T06:00:00.0Z...}
+  // {<transition> EDT o=-14400 dst=#t 2021-03-14T07:00:00.0Z...}
 
   // From US/Eastern TZif file according to zdump.py:
   // 2021-03-14 07:00:00 UTC = 2021-03-14 03:00:00 EDT   isdst=1 +1

@@ -1,32 +1,42 @@
 Module: %time
-Synopsis: Time and duration implementations (because they're somewhat intertwined)
-
-// --- <time> and its generic functions ---
 
 
-// A <time> represents an instant in UTC time, to nanosecond precision.
+define constant $microseconds/second :: <integer> = 1_000_000;
+define constant $microseconds/minute :: <integer> = 60 * $microseconds/second;
+define constant $microseconds/hour   :: <integer> = 60 * $microseconds/minute;
+define constant $microseconds/day    :: <integer> = 24 * $microseconds/hour;
+
+// A real (wall clock) time with microsecond precision, in UTC.
 define sealed primary class <time> (<object>)
-  // Number of days since the epoch. May be positive or negative.
-  constant slot %days :: <integer>, required-init-keyword: days:;
-
-  // Number of nanoseconds within the day. An non-negative integer.
-  constant slot %nanoseconds :: <integer>, required-init-keyword: nanoseconds:;
+  // Number of microseconds since the Unix epoch, midnight 1970-01-01.  (Note that by
+  // definition UTC includes leap seconds (well, at least until 2035) although the man
+  // page for clock_gettime only implies that indirectly, under its description of
+  // CLOCK_TAI.)  May be positive or negative.  With one sign bit and two Dylan tag bits
+  // this gives a range of about +/- 73117 years. See compose-time and decompose-time for
+  // how %microseconds is encoded.
+  constant slot %microseconds :: <integer>, required-init-keyword: microseconds:;
 end class;
+
+define inline method to-utc-microseconds (t :: <time>) => (micros :: <integer>)
+  t.%microseconds
+end method;
+
+define inline method to-utc-seconds (t :: <time>) => (seconds :: <integer>)
+  floor/(t.%microseconds, 1_000_000)
+end method;
 
 define method print-object (time :: <time>, stream :: <stream>) => ()
   if (*print-escape?*)
     printing-object (time, stream)
-      format(stream, "%dd %dns UTC", time.%days, time.%nanoseconds);
+      format-time(stream, $rfc3339, time);
     end;
   else
     format-time(stream, $rfc3339, time);
   end;
 end method;
 
-define constant $epoch :: <time>
-  = make(<time>, days: 0, nanoseconds: 0);
-
-// TODO: as-unix-time (not sure of name yet)
+// The epoch represents 1970-01-01T00:00:00.0Z.
+define constant $epoch :: <time> = make(<time>, microseconds: 0);
 
 // TODO: For applications that find themselves allocating a lot of `<time>` objects
 // (e.g., logging?), provide an API that allows them to be reinitialized from the current
@@ -35,24 +45,36 @@ define constant $epoch :: <time>
 // Returns the current time provided by the system's realtime clock.
 define sealed generic time-now () => (t :: <time>);
 
-// Decompose `t` into its component parts for presentation. If `zone` is
-// provided (it defaults to UTC) the returned values have had the appropriate
-// zone offset applied.
-define sealed generic time-components
+/* not yet, if at all
+
+// Convert `t` to Unix time, the number of seconds since midnight 1970-01-01 EXCLUDING
+// leap seconds.
+define sealed generic to-unix-time (t :: <time>) => (seconds :: <integer>);
+
+// Convert `t` to Unix time, the number of seconds since midnight 1970-01-01 INCLUDING
+// leap seconds.
+define sealed generic to-utc-time (t :: <time>) => (seconds :: <integer>);
+
+*/
+
+// Decompose `t` into its component parts for presentation. If `zone` is provided (it
+// defaults to UTC) the returned values have had the appropriate zone offset applied.
+define sealed generic decompose-time
     (t :: <time>, #key zone)
  => (year :: <integer>, month :: <month>, day-of-month :: <integer>,
      hour :: <integer>, minute :: <integer>, second :: <integer>,
-     nanosecond :: <integer>, day-of-week :: <day>);
+     microsecond :: <integer>, day-of-week :: <day>);
 
 // Create a time from the given components as interpreted for the given
 // `zone`, which defaults to UTC.
 define sealed generic compose-time
     (year :: <integer>, month :: <month>, day :: <integer>,
      hour :: <integer>, minute :: <integer>, second :: <integer>,
-     nanosecond :: <integer>, #key zone)
+     microsecond :: <integer>, #key zone)
  => (t :: <time>);
 
-// The zone in `time` may be overridden by providing the `zone` argument.
+// Dispay `time` on `stream` in the given `format`. If `zone` is provided the time is
+// displayed for that time zone.
 define sealed generic format-time
     (stream :: <stream>, format :: <object>, time :: <time>, #key zone) => ();
 
@@ -66,13 +88,13 @@ define sealed generic parse-time
 
 // --- <duration> and its generic functions ---
 
-// <duration> represents the difference between two times, in nanoseconds. They
-// may be positive or negative. On 64 bit systems, with 2 tag bits, and 1 sign
-// bit, this gives a maximum duration of just over 73 years.
+// <duration> represents a time interval in nanoseconds. They may be positive or
+// negative. On 64 bit systems, with 2 Dylan tag bits, and 1 sign bit, this gives a
+// maximum duration of just over 73 years.
 define class <duration> (<object>)
   constant slot duration-nanoseconds :: <integer> = 0,
     init-keyword: nanoseconds:;
-end;
+end class;
 
 define sealed generic duration-nanoseconds
     (d :: <duration>) => (nanoseconds :: <integer>);
@@ -80,7 +102,6 @@ define sealed generic duration-nanoseconds
 // May signal <time-error>.
 define sealed generic parse-duration
     (string :: <string>, #key start, end: _end) => (duration :: <duration>, end-pos :: <integer>);
-
 
 define sealed generic format-duration
     (stream :: <stream>, duration :: <duration>, #key long?) => ();
@@ -96,14 +117,14 @@ define method print-object
   end;
 end method;
 
-define constant $nanosecond :: <duration>  = make(<duration>, nanoseconds: 1);
-define constant $microsecond :: <duration> = make(<duration>, nanoseconds: 1_000);
-define constant $millisecond :: <duration> = make(<duration>, nanoseconds: 1_000_000);
-define constant $second :: <duration> = make(<duration>, nanoseconds: 1_000_000_000);
-define constant $minute :: <duration> = make(<duration>, nanoseconds: 1_000_000_000 * 60);
-define constant $hour :: <duration>   = make(<duration>, nanoseconds: 1_000_000_000 * 3600);
-define constant $day :: <duration>    = make(<duration>, nanoseconds: 1_000_000_000 * 3600 * 24);
-define constant $week :: <duration>   = make(<duration>, nanoseconds: 1_000_000_000 * 3600 * 24 * 7);
+define constant $nanosecond  :: <duration> = make(<duration>, nanoseconds: 1);
+define constant $microsecond :: <duration> = 1000 * $nanosecond;
+define constant $millisecond :: <duration> = 1000 * $microsecond;
+define constant $second      :: <duration> = 1000 * $millisecond;
+define constant $minute      :: <duration> = 60 * $second;
+define constant $hour        :: <duration> = 60 * $minute;
+define constant $day         :: <duration> = 24 * $hour;
+define constant $week        :: <duration> = 7 * $day;
 
 
 // --- Arithmetic and comparisons ---
@@ -111,13 +132,10 @@ define constant $week :: <duration>   = make(<duration>, nanoseconds: 1_000_000_
 // Since zone is used purely for display purposes, it is ignored during
 // arithmetic and comparison operations.
 
+// TODO: <instant> (i.e., monotonic clock times) +/- <duration>
+
 define sealed domain \+ (<duration>, <duration>);
-define sealed domain \+ (<time>, <duration>);
-define sealed domain \+ (<duration>, <time>);
-define sealed domain \- (<time>, <time>);
-define sealed domain \- (<time>, <duration>);
 define sealed domain \- (<duration>, <duration>);
-// TODO: <duration> - <integer> => ???
 define sealed domain \* (<duration>, <real>);
 define sealed domain \* (<real>, <duration>);
 define sealed domain \/ (<duration>, <real>);
@@ -125,104 +143,144 @@ define sealed domain \/ (<duration>, <real>);
 define sealed domain \= (<time>, <time>);
 define sealed domain \= (<duration>, <duration>);
 define sealed domain \< (<time>, <time>);
-// TODO: <duration> < <integer> maybe?
+define sealed domain \< (<duration>, <duration>);
 
 // =
 
 define method \= (t1 :: <time>, t2 :: <time>) => (_ :: <boolean>)
-  t1.%days == t2.%days
-    & t1.%nanoseconds == t2.%nanoseconds
-end;
+  t1.%microseconds == t2.%microseconds
+end method;
 
 define method \= (d1 :: <duration>, d2 :: <duration>) => (_ :: <boolean>)
   d1.duration-nanoseconds == d2.duration-nanoseconds
-end;
+end method;
 
 define method \< (t1 :: <time>, t2 :: <time>) => (_ :: <boolean>)
-  let days1 = t1.%days;
-  let days2 = t2.%days;
-  days1 < days2 | (days1 == days2 & (t1.%nanoseconds < t2.%nanoseconds))
-end;
+  let m1 :: <integer> = t1.%microseconds;
+  let m2 :: <integer> = t2.%microseconds;
+  m1 < m2
+/*
+  // Avoid the division necessary to extract days and micros, which is only necessary
+  // when both m1 and m2 are negative (which is rare), due to days extending backward in
+  // time (negative) and then microseconds within that day extending forward in time.
+  if (m1 < 0)
+    m2 >= 0
+      | begin // both negative
+          todo
+          let (day1, micro1) = floor/(m1, $microseconds/day);
+          let (day2, micro2) = floor/(m2, $microseconds/day);
+          day1 < day2 | (day1 == day2 & micro1 < micro2)
+        end
+  elseif (m2 < 0)
+    #f                          // m1 >= 0, m2 < 0
+  else
+    m1 < m2                     // both positive
+  end
+*/
+end method;
 
 define method \< (d1 :: <duration>, d2 :: <duration>) => (_ :: <boolean>)
-  // TODO
+  d1.duration-nanoseconds < d2.duration-nanoseconds
 end method;
 
 
 // +
 
-// Ouch. Heap allocating for these is kind of bad. Value types? Mutation?
-
-define method \+ (t :: <time>, d :: <duration>) => (t :: <time>)
-  let total-nanos = d.duration-nanoseconds;
-  let days = floor/(total-nanos, $nanos/day);
-  let nanos = total-nanos - days * $nanos/day;
-  let new-days = t.%days + days;
-  let new-nanos = t.%nanoseconds + nanos;
-  if (abs(new-nanos) >= $nanos/day)
-    new-days := new-days + if (new-nanos < 0) -1 else 1 end;
-  end;
-  make(<time>, days: new-days, nanoseconds: new-nanos)
-end method;
-
-define /* inline */ method \+ (d :: <duration>, t :: <time>) => (t :: <time>)
-  t + d
-end;
-
 define method \+ (d1 :: <duration>, d2 :: <duration>) => (d :: <duration>)
   make(<duration>, nanoseconds: d1.duration-nanoseconds + d2.duration-nanoseconds)
-end;
+end method;
 
 // -
 
-// Returns the difference between time `t1` and time `t2` as a <duration>,
-// which may be negative.
-define method \- (t1 :: <time>, t2 :: <time>) => (d :: <duration>)
-/*
-  let sec1 = t1.%seconds;
-  let sec2 = t2.%seconds;
-  let nano1 = t1.%nanoseconds;
-  let nano2 = t2.%nanoseconds;
-  let seconds = sec1 - sec2;
-  let nanoseconds = nano1 - nano2;
-  if (nanoseconds < 0)
-    seconds := seconds - 1;
-    nanoseconds := 1_000_000_000 + nanoseconds;
-  end;
-  make(<duration>, nanoseconds: nanoseconds)
-    */
-  // TODO
-  $nanosecond
-end method;
-
 define method \- (d1 :: <duration>, d2 :: <duration>) => (d :: <duration>)
   make(<duration>, nanoseconds: d1.duration-nanoseconds - d2.duration-nanoseconds)
-end;
-
-define method \- (t :: <time>, d :: <duration>) => (d :: <time>)
-  let (days, nanos) = truncate/(d.duration-nanoseconds, $nanos/day);
-  let days = t.%days - days;
-  let nanos = t.%nanoseconds - nanos;
-  if (nanos < 0)
-    days := days - 1;
-  end;
-  make(<time>, days: days, nanoseconds: nanos)
 end method;
+
+// This is for convenience only; don't use it try try and do date math because
+// `<duration>` only represents idealized time units.
+
 
 // *
 
 define method \* (d :: <duration>, r :: <real>) => (d :: <duration>)
   make(<duration>, nanoseconds: as(<integer>, d.duration-nanoseconds * r))
-end;
+end method;
 
-define /* inline */ method \* (r :: <real>, d :: <duration>) => (d :: <duration>)
+define method \* (r :: <real>, d :: <duration>) => (d :: <duration>)
   d * r
-end;
+end method;
 
-define /* inline */ method \/ (d :: <duration>, r :: <real>) => (d :: <duration>)
+// /
+
+define method \/ (d :: <duration>, r :: <real>) => (d :: <duration>)
   make(<duration>, nanoseconds: floor/(d.duration-nanoseconds, r))
 end method;
 
+
+// --- Unix time with and without leap seconds ---
+
+
+/* not yet, if at all
+
+define inline method to-unix-time (t :: <time>) => (seconds :: <integer>)
+  floor/(t.%microseconds, $microseconds/second)
+end method;
+
+// A sequence of Unix times at which leap seconds have been inserted, as defined here:
+// https://www.nist.gov/pml/time-and-frequency-division/time-realization/leap-seconds
+// Each element is a Unix time in seconds, itself excluding any leap seconds.
+// The sequence of events is: 23h 59m 59s -> 23h 59m 60s -> 00h 00m 00s.
+define constant $leap-second-insertion-times
+  = begin
+      local method ut (jd) => (ut :: <integer>)
+              let day = 0; // TODO: julian-to-civil(jd);
+              (day + 1) * 24 * 60 * 60 - 1 // 23:59:59 on day
+            end;
+      // newest to oldest
+      vector(ut(57753), // 2016-12-31
+             ut(57203), // 2015-06-30
+             ut(56108), // 2012-06-30
+             ut(54831), // 2008-12-31
+             ut(53735), // 2005-12-31
+             ut(51178), // 1998-12-31
+             ut(50629), // 1997-06-30
+             ut(50082), // 1995-12-31
+             ut(49533), // 1994-06-30
+             ut(49168), // 1993-06-30
+             ut(48803), // 1992-06-30
+             ut(48256), // 1990-12-31
+             ut(47891), // 1989-12-31
+             ut(47160), // 1987-12-31
+             ut(46246), // 1985-06-30
+             ut(45515), // 1983-06-30
+             ut(45150), // 1982-06-30
+             ut(44785), // 1981-06-30
+             ut(44238), // 1979-12-31
+             ut(43873), // 1978-12-31
+             ut(43508), // 1977-12-31
+             ut(43143), // 1976-12-31
+             ut(42777), // 1975-12-31
+             ut(42412), // 1974-12-31
+             ut(42047), // 1973-12-31
+             ut(41682), // 1972-12-31
+             ut(41498)) // 1972-06-30
+    end;
+
+define method to-utc-time (t :: <time>) => (seconds :: <integer>)
+  let ut = t.to-unix-time;
+  // Use the dumbest possible way to figure out the number of leap seconds to add.
+  let length = $leap-second-insertion-times.size;
+  iterate loop (i = 0)
+    if (i >= length)
+      ut
+    elseif (ut > $leap-second-insertion-times[i])
+      ut + length - i           // assumes only positive leap seconds
+    else
+      loop(i + 1)
+    end
+  end
+end method;
+*/
 
 // --- Building/decomposing times ---
 
@@ -237,9 +295,22 @@ end method;
 define constant $days/era = 146097;   // days per 400-year era
 define constant $epoch-days = 719468; // days between 0000-03-01 and 1970-01-01
 
+define function days-to-weekday
+    (days :: <integer>) => (weekday :: <day>)
+  select (modulo(days + 4, 7))
+    0 => $sunday;
+    1 => $monday;
+    2 => $tuesday;
+    3 => $wednesday;
+    4 => $thursday;
+    5 => $friday;
+    6 => $saturday;
+  end
+end function;
+
 // Given year, month, and day, return the number of days since Gregorian 1970-01-01.
 // Negative values indicate days prior to 1970-01-01.
-define function days-from-civil
+define function civil-to-days
     (y :: <integer>, m :: <integer>, d :: <integer>) => (days :: <integer>)
   let y = y - if (m <= 2) 1 else 0 end; // year begins March 1 for leap year convenience
   let era = floor/(if (y >= 0) y else y - 399 end, 400);
@@ -251,46 +322,9 @@ define function days-from-civil
   era * $days/era + doe - $epoch-days
 end function;
 
-// Adjust `days` and `nanoseconds` to UTC time by subtracting `offset-nanos`,
-// which could cross a day boundary. To adjust UTC to local pass the negated
-// zone offset instead.  Returns the adjusted days and nanoseconds for
-// constructing a `<time>`.
-define inline function adjust-for-zone-offset
-    (days :: <integer>, nanoseconds :: <integer>, offset-nanos :: <integer>)
- => (d :: <integer>, n :: <integer>)
-  let nanos = nanoseconds - offset-nanos;
-  if (nanos >= $nanos/day)
-    days := days + 1;
-    nanos := remainder(nanos, $nanos/day);
-  elseif (nanos < 0)
-    days := days - 1;
-    nanos := nanos + $nanos/day;
-  end;
-  values(days, nanos)
-end function;
-
-define method compose-time
-    (year :: <integer>, mon :: <month>, day :: <integer>, hour :: <integer>,
-     min :: <integer>, sec :: <integer>, nano :: <integer>,
-     #key zone :: <zone> = $utc)
- => (t :: <time>)
-  let days = days-from-civil(year, month-number(mon), day);
-  let nanoseconds = (hour * 60 * 60_000_000_000
-                       + min * 60_000_000_000
-                       + sec * 1_000_000_000
-                       + nano);
-  // TODO: this call to zone-offset-seconds ends up calling time-now() if `zone` is
-  // aware. We shouldn't need to allocate an extra <time> to make a <time>. Make a
-  // %zone-offset that accepts days and nanos and a %time-now that returns them?
-  let (days, nanoseconds)
-    = adjust-for-zone-offset(days, nanoseconds,
-                             zone-offset-seconds(zone) * $nanos/second);
-  make(<time>, days: days, nanoseconds: nanoseconds)
-end method;
-
 // Given a number of days relative to the epoch, either positive or negative, returns the
 // year, month, and day in the Gregorian calendar.
-define function civil-from-days
+define function days-to-civil
     (days :: <integer>) => (year :: <integer>, month :: <integer>, day :: <integer>)
   let z = days + $epoch-days;
   // era = "which 400-year span is `days` in?"
@@ -308,47 +342,57 @@ define function civil-from-days
   values(y + if (m <= 2) 1 else 0 end, m, d)
 end function;
 
-// $nanos/day should only be used for durations, which use idealized days.
-define constant $nanos/day :: <integer> = 1_000_000_000 * 60 * 60 * 24;
-define constant $nanos/hour :: <integer> = 3_600_000_000_000;
-define constant $nanos/minute :: <integer> =  60_000_000_000;
-define constant $nanos/second :: <integer> =   1_000_000_000;
+define method compose-time
+    (year :: <integer>, month :: <month>, day :: <integer>, hour :: <integer>,
+     minute :: <integer>, second :: <integer>, microsecond :: <integer>,
+     #key zone :: <zone> = $utc)
+ => (t :: <time>)
+  let days = civil-to-days(year, month-number(month), day);
+  let utc-microseconds = (days * $microseconds/day
+                            + hour * $microseconds/hour
+                            + minute * $microseconds/minute
+                            + second * $microseconds/second
+                            + microsecond);
+  let offset = %zone-offset-seconds(zone, utc-microseconds);
+  let micros = utc-microseconds - offset * $microseconds/second; // UTC -> zone
+  make(<time>, microseconds: micros)
+end method;
 
-define method time-components
-    (t :: <time>, #key zone :: <zone> = $UTC)
- => (y :: <integer>, mon :: <month>, d :: <integer>, h :: <integer>,
-     min :: <integer>, sec :: <integer>, nano :: <integer>, dow :: <day>)
-  let offset-nanos = -(zone-offset-seconds(zone, time: t) * $nanos/second);
-  let (days, nanos) = adjust-for-zone-offset(t.%days, t.%nanoseconds, offset-nanos);
-  // TODO: it would be faster to bit-pack the hour/minute/second/nanos as
-  // separate numbers (30+6+6+5=47 bits required) rather than doing all this
-  // division.
-  let (year, month, day) = civil-from-days(days);
+define method decompose-time
+    (t :: <time>, #key zone :: <zone> = $utc)
+ => (year :: <integer>, month :: <month>, day :: <integer>, hour :: <integer>,
+     minute :: <integer>, second :: <integer>, microsecond :: <integer>,
+     day-of-week :: <day>)
+  let offset-micros = zone-offset-seconds(zone, time: t) * $microseconds/second;
+  let micros = t.%microseconds + offset-micros;
+  let (days, micros) = floor/(micros, $microseconds/day);
+  let (year, month, day) = days-to-civil(days);
   let month = as(<month>, month);
-  let hour = floor/(nanos, $nanos/hour);
-  nanos := nanos - hour * $nanos/hour;
-  let minute = floor/(nanos, $nanos/minute);
-  nanos := nanos - minute * $nanos/minute;
-  let second = floor/(nanos, $nanos/second);
-  let nano = nanos - second * $nanos/second;
-  // Note: we return the zone to mirror encode-time.
-  values(year, month, day, hour, minute, second, nano,
-         // TODO: day of week
-         $monday)
+  let (hour, rem)   = floor/(micros, $microseconds/hour);
+  let (minute, rem) = floor/(rem, $microseconds/minute);
+  let (second, microsecond) = floor/(rem, $microseconds/second);
+  let day-of-week = days-to-weekday(days);
+  values(year, month, day, hour, minute, second, microsecond, day-of-week)
 end method;
 
 
 // --- Current time ---
 
-// Returns the current time provided by the system's realtime clock.
-define method time-now () => (t :: <time>)
+// Returns the current time provided by the system's realtime clock as the number of
+// microseconds since 1970-01-01 00:00Z.
+define method time-now-microseconds () => (microseconds :: <integer>)
   let spec = make(<timespec*>);
-  let result = clock-gettime(get-clock-realtime(), spec);
-  make(<time>,
-       days: floor/(spec.timespec-seconds, 24 * 60 * 60),
-       nanoseconds: spec.timespec-nanoseconds * 24 * 60 * 60)
+  if (clock-gettime(get-clock-realtime(), spec) ~== 0)
+    // TODO: return the value of errno and a better error message.
+    time-error("could not get clock value from system");
+  end;
+  spec.timespec-seconds * $microseconds/second
+    + floor/(spec.timespec-nanoseconds, 1_000)
 end method;
 
+define method time-now () => (t :: <time>)
+  make(<time>, microseconds: time-now-microseconds())
+end method;
 
 // --- Days of the week ---
 
@@ -486,40 +530,34 @@ define method as (class == <month>, name :: <string>) => (m :: <month>)
 end;
 
 define table $name-to-month :: <string-table> = {
-  $january.month-long-name => $january,
-  $february.month-long-name => $february,
-  $march.month-long-name => $march,
-  $april.month-long-name => $april,
-  $may.month-long-name => $may,
-  $june.month-long-name => $june,
-  $july.month-long-name => $july,
-  $august.month-long-name => $august,
+  $january.month-long-name   => $january,
+  $february.month-long-name  => $february,
+  $march.month-long-name     => $march,
+  $april.month-long-name     => $april,
+  $may.month-long-name       => $may,
+  $june.month-long-name      => $june,
+  $july.month-long-name      => $july,
+  $august.month-long-name    => $august,
   $september.month-long-name => $september,
-  $october.month-long-name => $october,
-  $november.month-long-name => $november,
-  $december.month-long-name => $december
+  $october.month-long-name   => $october,
+  $november.month-long-name  => $november,
+  $december.month-long-name  => $december
 };
 
 define table $short-name-to-month :: <string-table> = {
-  $january.month-short-name => $january,
-  $february.month-short-name => $february,
-  $march.month-short-name => $march,
-  $april.month-short-name => $april,
-  $may.month-short-name => $may,
-  $june.month-short-name => $june,
-  $july.month-short-name => $july,
-  $august.month-short-name => $august,
+  $january.month-short-name   => $january,
+  $february.month-short-name  => $february,
+  $march.month-short-name     => $march,
+  $april.month-short-name     => $april,
+  $may.month-short-name       => $may,
+  $june.month-short-name      => $june,
+  $july.month-short-name      => $july,
+  $august.month-short-name    => $august,
   $september.month-short-name => $september,
-  $october.month-short-name => $october,
-  $november.month-short-name => $november,
-  $december.month-short-name => $december
+  $october.month-short-name   => $october,
+  $november.month-short-name  => $november,
+  $december.month-short-name  => $december
 };
 
-define constant $minimum-time :: <time>
-  = make(<time>, days: $minimum-integer, nanoseconds: 0);
-
-// TODO: this may not be exactly right, considering leap seconds.
-define constant $maximum-time :: <time>
-  = make(<time>,
-         days: $maximum-integer,
-         nanoseconds: duration-nanoseconds($day - $nanosecond));
+define constant $minimum-time :: <time> = make(<time>, microseconds: $minimum-integer);
+define constant $maximum-time :: <time> = make(<time>, microseconds: $maximum-integer);

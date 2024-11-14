@@ -71,19 +71,22 @@ define function parse-time-format (descriptor :: <string>) => (_ :: <sequence>)
   end iterate
 end function;
 
-// Each value is a pair of #(time-component . formatter-function) where
-// time-component is a keyword that matches the select statement used in
-// format-time.
+// Each value is a pair of #(time-component . formatter-function) where time-component is
+// a keyword that matches the select statement used in format-time.
 //
 // TODO: BC/AD, BCE/CE (see ISO 8601)
 define table $time-format-map :: <string-table>
-  = { "yyyy"   => pair(#"year", curry(format-ndigit-int, 4)),
+  = { "year"   => pair(#"year", curry(format-ndigit-int, 4)),
+      "yyyy"   => pair(#"year", curry(format-ndigit-int, 4)),
       "yy"     => pair(#"year", curry(format-ndigit-int-mod, 2, 100)),
-      "mm"     => pair(#"month", method (stream, month)
-                                   format-ndigit-int(2, stream, month.month-number)
-                                 end),
+      "mm"     => pair(#"month",
+                       method (stream, month)
+                         format-ndigit-int(2, stream, month.month-number)
+                       end),
       "mon"    => pair(#"month", format-short-month-name),
       "month"  => pair(#"month", format-long-month-name),
+      "day-of-month" => pair(#"day-of-month", curry(format-ndigit-int, 2)),
+      "dom"    => pair(#"day-of-month", curry(format-ndigit-int, 2)),
       "dd"     => pair(#"day-of-month", curry(format-ndigit-int, 2)),
       "HH"     => pair(#"hour", curry(format-ndigit-int, 2)),
       "hh"     => pair(#"hour", format-hour-12),
@@ -93,76 +96,55 @@ define table $time-format-map :: <string-table>
       "PM"     => pair(#"hour", format-uppercase-am-pm),
       "MM"     => pair(#"minute", curry(format-ndigit-int, 2)),
       "SS"     => pair(#"second", curry(format-ndigit-int, 2)),
-      "millis" => pair(#"nanosecond", curry(format-ndigit-int-mod, 3, 1000)),
-      "micros" => pair(#"nanosecond", curry(format-ndigit-int-mod, 6, 1_000_000)),
-      "nanos"  => pair(#"nanosecond", curry(format-ndigit-int-mod, 9, 1_000_000_000)),
+      "millis" => pair(#"microsecond", curry(format-ndigit-int-mod, 3, 1000)),
+      "micros" => pair(#"microsecond", curry(format-ndigit-int, 6)),
       // f = fractional seconds with minimum digits. fN outputs exactly N digits.
-      "f"      => pair(#"nanosecond", format-nanos-with-minimum-digits),
-      // Not sure if some of these will be used, but might as well be complete.
-      "f1"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 1, 10)),
-      "f2"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 2, 100)),
-      "f3"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 3, 1000)),
-      "f4"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 4, 10_000)),
-      "f5"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 5, 100_000)),
-      "f6"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 6, 1_000_000)),
-      "f7"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 7, 10_000_000)),
-      "f8"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 8, 100_000_000)),
-      "f9"     => pair(#"nanosecond", curry(format-ndigit-int-mod, 9, 1_000_000_000)),
+      "f"      => pair(#"microsecond",
+                        method (stream, micros)
+                          write(stream, integer-to-string(micros))
+                        end),
+      // Some of these probably won't be used, but might as well be complete.
+      "f1"     => pair(#"microsecond", curry(format-ndigit-int-mod, 1, 10)),
+      "f2"     => pair(#"microsecond", curry(format-ndigit-int-mod, 2, 100)),
+      "f3"     => pair(#"microsecond", curry(format-ndigit-int-mod, 3, 1000)),
+      "f4"     => pair(#"microsecond", curry(format-ndigit-int-mod, 4, 10_000)),
+      "f5"     => pair(#"microsecond", curry(format-ndigit-int-mod, 5, 100_000)),
+      "f6"     => pair(#"microsecond", curry(format-ndigit-int, 6)),
 
-      "zone"     => pair(#"zone", format-zone-name),       // UTC, PST, etc
-
+      "zone"     => pair(#"zone", format-zone-name),       // America/New_York etc.
       // TODO: these fail for <aware-zone>s. Need some refactoring to make sure the
       // offset is found for the correct time.
       "offset"   => pair(#"zone", rcurry(format-zone-offset, colon?: #f, utc-name: #f)), // +0000
       "offset:"  => pair(#"zone", rcurry(format-zone-offset, colon?: #t, utc-name: #f)), // +00:00
       "offset:Z" => pair(#"zone", rcurry(format-zone-offset, colon?: #t, utc-name: "Z")), // Z or +02:00
 
-      "day"     => pair(#"day-of-week", format-short-weekday),
-      "weekday" => pair(#"day-of-wook", format-long-weekday),
+      "dow"       => pair(#"day-of-week", format-short-weekday),
+      "dayofweek" => pair(#"day-of-week", format-long-weekday),
      };
 
-define function format-nanos-with-minimum-digits
-    (stream :: <stream>, nanos :: <integer>) => ()
-  if (nanos = 0)
-    // Since the '.' must be a literal string in the formatter, provided by the
-    // user, we need to output something even if nanos are 0.
-    write-element(stream, '0');
-  else
-    // We could do fewer divisions than this. Binary search, essentially.
-    iterate loop(n = nanos, i = 9)
-      let (q, r) = floor/(n, 10);
-      if (r = 0)
-        loop(q, i - 1)
-      else
-        write(stream, integer-to-string(n, size: i));
-      end;
-    end iterate;
-  end;
-end function;
-
-define /* inline */ function format-ndigit-int-mod
+define function format-ndigit-int-mod
     (digits :: <integer>, mod :: <integer>, stream :: <stream>, n :: <integer>) => ()
   let n :: <integer> = modulo(n, mod);
   write(stream, integer-to-string(n, size: digits, fill: '0'));
 end function;
 
-define /* inline */ function format-ndigit-int
+define function format-ndigit-int
     (digits :: <integer>, stream :: <stream>, n :: <integer>) => ()
   write(stream, integer-to-string(n, size: digits, fill: '0'));
 end function;
 
-define /* inline */ function format-hour-12
+define function format-hour-12
     (stream :: <stream>, hour24 :: <integer>) => ()
   let hour = if (hour24 < 12) hour24 else hour24 - 12 end;
   write(stream, integer-to-string(hour, size: 2, fill: '0'));
 end function;
 
-define /* inline */ function format-lowercase-am-pm
+define function format-lowercase-am-pm
     (stream :: <stream>, hour :: <integer>) => ()
   write(stream, if (hour < 12) "am" else "pm" end);
 end function;
 
-define /* inline */ function format-uppercase-am-pm
+define function format-uppercase-am-pm
     (stream :: <stream>, hour :: <integer>) => ()
   write(stream, if (hour < 12) "AM" else "PM" end);
 end function;
@@ -180,9 +162,15 @@ end method;
 // See RFC 3339 time-zone BNF
 define method format-zone-offset
     (stream :: <stream>, zone :: <naive-zone>,
-     #key colon? :: <boolean>, utc-name :: <string>?)
+     #key colon? :: <boolean>, utc-name :: <string?>)
  => ()
   let offset = zone-offset-seconds(zone);
+  %format-zone-offset(stream, offset, colon?, utc-name);
+end method;
+
+define function %format-zone-offset
+    (stream :: <stream>, offset :: <integer>, colon? :: <boolean>, utc-name :: <string?>)
+ => ()
   if (offset = 0 & utc-name)
     write(stream, utc-name);
   else
@@ -201,27 +189,27 @@ define method format-zone-offset
       format-ndigit-int(2, stream, second);
     end;
   end;
-end method;
+end function;
 
 // TODO: format-zone-offset for <aware-zone>. It needs to receive the reference
 // time to calculate the offset.
 
-define /* inline */ function format-short-weekday
+define function format-short-weekday
     (stream :: <stream>, day :: <day>) => ()
   write(stream, day.day-short-name);
 end function;
 
-define /* inline */ function format-long-weekday
+define function format-long-weekday
     (stream :: <stream>, day :: <day>) => ()
   write(stream, day.day-long-name);
 end function;
 
-define /* inline */ function format-short-month-name
+define function format-short-month-name
     (stream :: <stream>, month :: <month>) => ()
   write(stream, month.month-short-name);
 end function;
 
-define /* inline */ function format-long-month-name
+define function format-long-month-name
     (stream :: <stream>, month :: <month>) => ()
   write(stream, month.month-long-name);
 end function;
@@ -238,29 +226,41 @@ define constant $rfc3339-milliseconds :: <time-format>
 define constant $rfc3339-microseconds :: <time-format>
   = make(<time-format>, string: "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}.{micros}{offset:Z}");
 
+// Time format compatible with as-rfc822-string:date:system.
+define constant $rfc822 :: <time-format>
+  = make(<time-format>, string: "{dow}, {dd} {mon} {year} {HH}:{MM}:{SS} {offset}");
+
+// Time format compatible with as-rfc1123-string:date:system.
+define constant $rfc1123 :: <time-format>
+  = make(<time-format>, string: "{dow}, {dd} {mon} {year} {HH}:{MM}:{SS} {offset}");
+
+// Time format compatible with as-iso8601-string:date:system.
+define constant $iso8601 :: <time-format>
+  = make(<time-format>, string: "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}{offset:}");
+
 // TODO: these both format with "Z" for the offset:
 //   format-time(s1, $rfc3339, t2, zone: $utc)
 //   format-time(s1, $rfc3339, t2, zone: find-zone("US/Eastern"))
-define /* inline */ method format-time
-    (stream :: <stream>, fmt :: <time-format>, time :: <time>, #key zone :: <zone>?)
+define method format-time
+    (stream :: <stream>, fmt :: <time-format>, time :: <time>, #key zone :: <zone?>)
  => ()
   format-time(stream, time-format-parsed(fmt), time, zone: zone);
 end method;
 
 // If you care about performance of this formatting, make a <time-format>
 // explicitly instead, so it will be parsed only once.
-define /* inline */ method format-time
-    (stream :: <stream>, fmt :: <string>, time :: <time>, #key zone :: <zone>?)
+define method format-time
+    (stream :: <stream>, fmt :: <string>, time :: <time>, #key zone :: <zone?>)
  => ()
   format-time(stream, parse-time-format(fmt), time, zone: zone);
 end method;
 
 define method format-time
-    (stream :: <stream>, fmt :: <sequence>, time :: <time>, #key zone :: <zone>?)
+    (stream :: <stream>, fmt :: <sequence>, time :: <time>, #key zone :: <zone?>)
  => ()
   let zone :: <zone> = zone | $utc;
-  let (year, month, day-of-month, hour, minute, second, nanosecond, day-of-week)
-    = time-components(time, zone: zone);
+  let (year, month, day-of-month, hour, minute, second, microsecond, day-of-week)
+    = decompose-time(time, zone: zone);
   for (item in fmt)
     select (item by instance?)
       <string>
@@ -275,7 +275,7 @@ define method format-time
                    #"hour"         => hour;
                    #"minute"       => minute;
                    #"second"       => second;
-                   #"nanosecond"   => nanosecond;
+                   #"microsecond"  => microsecond;
                    #"day-of-week"  => day-of-week;
                    #"zone"         => zone;
                  end;
@@ -286,8 +286,6 @@ define method format-time
     end;
   end;
 end method;
-
-
 
 
 // --- Time parsing ---
@@ -328,12 +326,9 @@ define method format-duration
   let nanos :: <integer> = duration.duration-nanoseconds;
   block (return)
     if (nanos = 0)
-      // Choice of seconds as the unit is kind of arbitrary.
-      write(stream, if (long?) "0 seconds" else "0s" end);
+      write(stream, if (long?) "0 nanoseconds" else "0ns" end);
       return();
     end;
-    // TODO: still haven't decided whether durations can be negative. I think
-    // not. If they can be negative I should probably use truncate/ not floor/.
     if (nanos < 0)
       nanos := abs(nanos);
       write-element(stream, '-');

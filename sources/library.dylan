@@ -25,12 +25,17 @@ define module time
     // Time
     <time>,
     time-now,
-    time-components,            // => year, month, day, hour, minute, second, nanosecond
+    time-now-microseconds,
+    to-utc-microseconds,
+    to-utc-seconds,
     $epoch,
     $minimum-time,
     $maximum-time,
 
     format-time,
+    $iso8601,
+    $rfc822,
+    $rfc1123,
     $rfc3339,                   // minimum digits for fractional seconds
     $rfc3339-milliseconds,      // 3 digit fractional second
     $rfc3339-microseconds,      // 6 digit fractional second
@@ -58,7 +63,7 @@ define module time
 
     // Conversions
     compose-time,               // make a <time> from its components
-    time-components,            // break a <time> into its components
+    decompose-time,             // break a <time> into its components
     parse-time,                 // TODO: $iso-8601-format etc?
     parse-duration,
     parse-day,                  // TODO: not sure about this
@@ -115,7 +120,7 @@ define module %time
   use standard-io,
     import: { *standard-output* };
   use streams,
-    import: { <byte>, <stream>, read-to-end, write, write-element };
+    import: { <byte>, <stream>, read-to-end, write, \with-output-to-string, write-element };
   use strings,
     import: { decimal-digit?, string-equal-ic?, whitespace? };
   use table-extensions,
@@ -125,15 +130,22 @@ define module %time
 
   // Exports for tests only.
   export
-    %days,
-    %nanoseconds,
+    days-to-weekday,
+    civil-to-days,
+    days-to-civil,
+    %microseconds,
     <naive-zone>,
     <aware-zone>,
-    <subzone>,
-    subzones,
-    subzone-start-time,
+    <transition>,
+    %transitions,
+    %utc-seconds,
     $min-offset-seconds,
     $max-offset-seconds,
+
+    $microseconds/second,
+    $microseconds/minute,
+    $microseconds/hour,
+    $microseconds/day,
 
     // tzif
     <tzif>,
@@ -141,13 +153,13 @@ define module %time
     bytes-to-int64,
     load-zone,
     load-all-zones,
-    tzif-version,
-    tzif-end-of-v1-data,
-    tzif-end-of-v2-data,
-    tzif-is-utc-count,
-    tzif-is-std-count,
-    tzif-leap-count,
-    tzif-time-count,
-    tzif-type-count,
-    tzif-char-count;
+    %version,
+    %end-of-v1-data,
+    %end-of-v2-data,
+    %is-utc-count,
+    %is-std-count,
+    %leap-count,
+    %time-count,
+    %type-count,
+    %char-count;
 end module %time;

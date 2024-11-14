@@ -1,12 +1,12 @@
 Module: %time
-Synopsis: Read TZif (RFC 8536) file format
+Synopsis: Read TZif (RFC 9636) file format
 
 // Note that this code uses the big-integer and generic-arithmetic libraries with a
 // module prefix in order to be able to accept the full range of 64-bit integers in the
 // TZif data. By design, once the data has been processed only integers that will fit in
-// Dylan's 62-bit signed integers (days and nanos) remain, so the main time code doesn't
-// need to take a performance hit and code that uses time doesn't need to handle extended
-// integers.
+// Dylan's 62-bit signed integers (microseconds since the epoch) remain, so the main time
+// code doesn't need to take a performance hit and code that uses time doesn't need to
+// handle extended integers.
 
 // --- Errors ---
 
@@ -50,37 +50,37 @@ ignorable(debug-tzif);
 // zone. These are only used during parsing. The result of parsing a TZif record is an
 // <aware-zone>.
 define class <tzif> (<object>)
-  // The zone long name. On Linux this is from the basename of the file containing the
-  // data.
-  constant slot tzif-zone-name :: <string>, required-init-keyword: name:;
-  constant slot tzif-data :: <byte-vector>, required-init-keyword: data:;
+  // The zone long name. On Linux this is the final 1 or 2 components of the file
+  // name.  For example, Asia/Tashkent or EST.
+  constant slot %zone-name :: <string>, required-init-keyword: name:;
+  constant slot %data :: <byte-vector>, required-init-keyword: data:;
   // A way to identify the data source for error messages and debugging. Often a full
   // pathname, but that should not be assumed.
-  constant slot tzif-source :: <string>, required-init-keyword: source:;
-  slot tzif-version;             // 1, 2, or 3
-  slot tzif-end-of-v1-data;      // = v2 data start
-  slot tzif-end-of-v2-data = -1; // = footer start, -1 if only v1 present
-  slot tzif-is-utc-count;
-  slot tzif-is-std-count;
-  slot tzif-leap-count;
-  slot tzif-time-count;
-  slot tzif-type-count;
-  slot tzif-char-count;
+  constant slot %source :: <string>, required-init-keyword: source:;
+  slot %version;             // 1, 2, 3, or 4
+  slot %end-of-v1-data;      // = v2 data start
+  slot %end-of-v2-data = -1; // = footer start, -1 if only v1 present
+  slot %is-utc-count;
+  slot %is-std-count;
+  slot %leap-count;
+  slot %time-count;
+  slot %type-count;
+  slot %char-count;
 end class;
 
 define method print-object (t :: <tzif>, stream :: <stream>) => ()
   printing-object (t, stream)
     format(stream, "%s v=%d v1-end=%d v2-end=%d is-utc=%d is-std=%d leap=%d time=%d type=%d char=%d",
-           t.tzif-source,
-           t.tzif-version,
-           t.tzif-end-of-v1-data,
-           t.tzif-end-of-v2-data,
-           t.tzif-is-utc-count,
-           t.tzif-is-std-count,
-           t.tzif-leap-count,
-           t.tzif-time-count,
-           t.tzif-type-count,
-           t.tzif-char-count);
+           t.%source,
+           t.%version,
+           t.%end-of-v1-data,
+           t.%end-of-v2-data,
+           t.%is-utc-count,
+           t.%is-std-count,
+           t.%leap-count,
+           t.%time-count,
+           t.%type-count,
+           t.%char-count);
   end;
 end method;
 
@@ -92,7 +92,7 @@ define function load-tzif-zones
   let loaded-files = make(<string-table>, size: 700);
   local
     method add-zone (name :: <string>, zone :: <zone>, locator :: <file-locator>)
-                 => (z :: <zone>?)
+                 => (z :: <zone?>)
       debug-tzif("loaded zone %s (%s) from %s\n", zone, name, locator);
       let name2 = map(method (c) iff(c = '_', ' ', c) end, name);
       if (name ~= name2)
@@ -100,7 +100,7 @@ define function load-tzif-zones
       end;
       zones[name] := zone
     end,
-    method load-file (directory, filename) => (z :: <zone>?)
+    method load-file (directory, filename) => (z :: <zone?>)
       let locator = merge-locators(as(<file-locator>, filename),
                                    as(<directory-locator>, directory));
       // Name is taken from the original filename without first following links.
@@ -161,74 +161,76 @@ define function load-zone (tzif :: <tzif>) => (zone :: <aware-zone>)
   decode-header(tzif, 0, 1);
   // Version 1 block is always present, but should be ignored if the version is 2 or
   // higher.
-  select (tzif.tzif-version)
+  select (tzif.%version)
     1 =>
       decode-tzif-data-block(tzif, $tzif-header-octet-count, 4);
     2, 3 =>
-      decode-header(tzif, tzif.tzif-end-of-v1-data, tzif.tzif-version);
-      decode-tzif-data-block(tzif, tzif.tzif-end-of-v1-data + $tzif-header-octet-count, 8);
+      decode-header(tzif, tzif.%end-of-v1-data, tzif.%version);
+      decode-tzif-data-block(tzif, tzif.%end-of-v1-data + $tzif-header-octet-count, 8);
   end
 end function;
 
 // Parse the headers starting at `start` and store the values into `tzif`.
 define function decode-header
     (tzif :: <tzif>, start :: <integer>, version :: <integer>)
-  let data :: <byte-vector> = tzif.tzif-data;
+  let data :: <byte-vector> = tzif.%data;
   if (~tzif?(data, start))
     error(make(<not-tzif-format-error>,
                format-string: "%s: magic 'TZif' bytes not found at position %d",
-               format-arguments: list(tzif.tzif-source, start)));
+               format-arguments: list(tzif.%source, start)));
   end;
-  tzif.tzif-version := select (data[start + 4])
-                         0 => 1;
-                         as(<integer>, '2') => 2;
-                         as(<integer>, '3') => 3;
-                         otherwise =>
-                           tzif-error("%s: unrecognized TZif version: %=",
-                                      tzif.tzif-source, data[start + 4]);
-                       end;
+  tzif.%version := select (data[start + 4])
+                     0 => 1;
+                     as(<integer>, '2') => 2;
+                     as(<integer>, '3') => 3;
+                     as(<integer>, '4') => 4;
+                     otherwise =>
+                       tzif-error("%s: unrecognized TZif version: %=",
+                                  tzif.%source, data[start + 4]);
+                   end;
   // Version 1 data counts must be parsed even in version 2+ so that we can
   // skip v1 data. The primary difference between v1 and v2+ is the move from
   // 32-bit to 64-bit times.
-  tzif.tzif-is-utc-count := bytes-to-int32(data, start + 20, "isutccnt");
-  tzif.tzif-is-std-count := bytes-to-int32(data, start + 24, "isstdcnt");
-  tzif.tzif-leap-count := bytes-to-int32(data, start + 28, "leapcnt");
-  tzif.tzif-time-count := bytes-to-int32(data, start + 32, "timecnt");
-  tzif.tzif-type-count := bytes-to-int32(data, start + 36, "typecnt");
-  tzif.tzif-char-count := bytes-to-int32(data, start + 40, "charcnt");
+  tzif.%is-utc-count := bytes-to-int32(data, start + 20, "isutccnt");
+  tzif.%is-std-count := bytes-to-int32(data, start + 24, "isstdcnt");
+  tzif.%leap-count := bytes-to-int32(data, start + 28, "leapcnt");
+  tzif.%time-count := bytes-to-int32(data, start + 32, "timecnt");
+  tzif.%type-count := bytes-to-int32(data, start + 36, "typecnt");
+  tzif.%char-count := bytes-to-int32(data, start + 40, "charcnt");
   let time-size = iff(version = 1, 4, 8);
   let data-end
     = start + $tzif-header-octet-count
-            + tzif.tzif-time-count * time-size       // transition times
-            + tzif.tzif-time-count                   // transition types
-            + tzif.tzif-type-count * 6               // local time type records
-            + tzif.tzif-char-count                   // time zone designations
-            + tzif.tzif-leap-count * (time-size + 4) // leap-second records
-            + tzif.tzif-is-std-count                 // standard/wall indicators
-            + tzif.tzif-is-utc-count;                // UT/local indicators
+            + tzif.%time-count * time-size       // transition times
+            + tzif.%time-count                   // transition types
+            + tzif.%type-count * 6               // local time type records
+            + tzif.%char-count                   // time zone designations
+            + tzif.%leap-count * (time-size + 4) // leap-second records
+            + tzif.%is-std-count                 // standard/wall indicators
+            + tzif.%is-utc-count;                // UT/local indicators
   if (version = 1)
-    tzif.tzif-end-of-v1-data := data-end;
+    tzif.%end-of-v1-data := data-end;
   else
-    tzif.tzif-end-of-v2-data := data-end;
+    tzif.%end-of-v2-data := data-end;
   end;
   debug-tzif("v=%d, isutcnt=%d, isstdcnt=%d, leapcnt=%d, timecnt=%d, typecnt=%d, charcnt=%d\n",
-             version, tzif.tzif-is-utc-count, tzif.tzif-is-std-count, tzif.tzif-leap-count,
-             tzif.tzif-time-count, tzif.tzif-type-count, tzif.tzif-char-count);
+             version, tzif.%is-utc-count, tzif.%is-std-count, tzif.%leap-count,
+             tzif.%time-count, tzif.%type-count, tzif.%char-count);
 end function;
 
 // Parse the data block beginning at `start` with times that are `time-size` bytes
 // long. `time-size` is either 4 or 8.
+// TODO: read the leap second records.
 define function decode-tzif-data-block
     (tzif :: <tzif>, start :: <integer>, time-size :: <integer>) => (zone :: <zone>)
-  let source = tzif.tzif-source;
-  let data = tzif.tzif-data;
+  let source = tzif.%source;
+  let data = tzif.%data;
   let trans-time-start = start;
-  let trans-type-start = trans-time-start + (time-size * tzif.tzif-time-count);
-  let local-time-start = trans-type-start + tzif.tzif-time-count;
-  let tz-designator-start = local-time-start + (6 * tzif.tzif-type-count);
-  let leap-second-start   = tz-designator-start + tzif.tzif-char-count;
-  let std/wall-start = leap-second-start + ((4 + 4) * tzif.tzif-leap-count);
-  let ut/local-start = std/wall-start + tzif.tzif-is-std-count;
+  let trans-type-start = trans-time-start + (time-size * tzif.%time-count);
+  let local-time-start = trans-type-start + tzif.%time-count;
+  let tz-designator-start = local-time-start + (6 * tzif.%type-count);
+  let leap-second-start   = tz-designator-start + tzif.%char-count;
+  let std/wall-start = leap-second-start + ((4 + 4) * tzif.%leap-count);
+  let ut/local-start = std/wall-start + tzif.%is-std-count;
   debug-tzif("trans-times=%d, trans-types=%d, local-times=%d, tz-strings=%d,"
                " leap-seconds=%d, std/wall=%d, ut/local=%d\n",
              trans-time-start, trans-type-start, local-time-start, tz-designator-start,
@@ -236,57 +238,62 @@ define function decode-tzif-data-block
   let (local-offsets, local-dsts, local-abbrevs)
     = decode-local-time-types(tzif, local-time-start, tz-designator-start,
                               leap-second-start);
-
-  // TODO: read the leap second records.
-
-  let subzones = make(<stretchy-vector>);
-
-  // Times before the first subzone are determined by the first local time type record.
-  // It is valid for a TZif file to specify no transition times, or to never use the
-  // first local time type record in a transition time so we unconditionally add a
-  // subzone here as the oldest subzone.
-  add!(subzones, make(<subzone>,
-                      start-time: $minimum-time,
-                      offset-seconds: local-offsets[0],
-                      abbrev: local-abbrevs[0],
-                      dst?: local-dsts[0]));
-
-  // Make a subzone starting at each transition time record.
-  for (i from 0 below tzif.tzif-time-count)
+  // Make a transition starting at each transition time record. Note that due to the
+  // potential adjustment, or simply due to a redundant transition time in the data,
+  // there could be duplicate transition times. The last one added "wins" due to the
+  // `reverse!` below.
+  let transitions = make(<stretchy-vector>);
+  for (i from 0 below tzif.%time-count)
     let bytes-to-int = select (time-size)
                          4 => bytes-to-int32;
                          8 => bytes-to-int64;
                        end;
     let transition-time = bytes-to-int(data, trans-time-start + (i * time-size), "transtime");
+    let adjusted-transition-time = maybe-adjust-transition-time(transition-time);
     let local-time-type-index = data[trans-type-start + i];
     let utc-offset-seconds = local-offsets[local-time-type-index];
-    // We get a potentially extended integer back from bytes-to-int64 but here,
-    // after flooring, it should be a native Dylan integer, which we guarantee
-    // by specifying the types of the receivng variables.
-    let (days :: <integer>, seconds :: <integer>) = ga/floor/(transition-time, 86400);
-    let time = make(<time>, days: days, nanoseconds: abs(seconds) * 1_000_000_000);
-    let subzone = make(<subzone>,
-                       start-time: time,
-                       offset-seconds: local-offsets[local-time-type-index],
-                       abbrev: local-abbrevs[local-time-type-index],
-                       dst?: local-dsts[local-time-type-index]);
-    add!(subzones, subzone);
+    let transition
+      = make(<transition>,
+             utc-seconds: adjusted-transition-time,
+             offset-seconds: local-offsets[local-time-type-index],
+             abbreviation: local-abbrevs[local-time-type-index],
+             dst?: local-dsts[local-time-type-index]);
+    add!(transitions, transition);
   end for;
-  decode-footer(subzones, data, tzif.tzif-end-of-v2-data, data.size);
+  decode-footer(transitions, data, tzif.%end-of-v2-data, data.size);
   make(<aware-zone>,
-       name: tzif.tzif-zone-name,
-       subzones: reverse!(subzones))
+       name: tzif.%zone-name,
+       transitions: reverse!(transitions)) // newest first
+end function;
+
+// Because it is possible for TZif data to contain a zone transition time as small as
+// -2^59 or -#x800_0000_0000_0000 seconds (and this does happen in practice) it is still
+// possible for an overflow to occur when converting that value to microseconds. This is
+// handled by using $minimum-time.%microseconds for any transition that has a negative
+// magnitude that is too large to fit. We will just have to disappoint that subset of our
+// users who are concerned with DST transitions near the time of the Big Bang.
+//
+// TODO: should ${min,max}-offset-seconds be taken into account here so that after
+// applying the offset and converting to microseconds we can't get an overflow?
+define function maybe-adjust-transition-time (seconds)
+  block ()
+    seconds * 1_000_000;
+    seconds
+  exception (<arithmetic-overflow-error>)
+    floor/(%microseconds(iff(seconds < 0, $minimum-time, $maximum-time)),
+           1_000_000)
+  end
 end function;
 
 define function decode-local-time-types
     (tzif :: <tzif>, start-of-data :: <integer>, tz-abbrev-start :: <integer>,
      leap-second-start :: <integer>)
-  let count = tzif.tzif-type-count;
+  let count = tzif.%type-count;
   let local-offsets = make(<vector>, size: count);
-  let local-dsts = make(<vector>, size: count);
+  let local-dsts    = make(<vector>, size: count);
   let local-abbrevs = make(<vector>, size: count);
-  let data = tzif.tzif-data;
-  for (i from 0 below tzif.tzif-type-count,
+  let data = tzif.%data;
+  for (i from 0 below count,
        start from start-of-data by 6)
     local-offsets[i] := bytes-to-int32(data, start, "utcoff");
     local-dsts[i]
@@ -296,7 +303,7 @@ define function decode-local-time-types
            otherwise
              => tzif-error("%s: invalid is-dst value %d should be 0 or 1,"
                              " for local time type starting at index %d",
-                           tzif.tzif-source, data[start + 4], start);
+                           tzif.%source, data[start + 4], start);
          end;
     let tz-index = data[start + 5];
     local-abbrevs[i]
@@ -339,10 +346,6 @@ define function bytes-to-int32 (bytes, start, id) => (i :: <integer>)
 end function;
 
 define function bytes-to-int64 (bytes, start, id) => (i :: ga/<integer>)
-  // Conveniently, RFC 8536 says the most negative time SHOULD be -2^59, so we
-  // can hope for no overflow due to tag bits here. No mention of most positive
-  // time value so let's just hope no one needs a time more than 14 billion
-  // years in the future.
   let high-order-byte :: <byte> = bytes[start];
   if (logbit?(7, high-order-byte))
     // Negative number. Parse the complement as unsigned and then negate it.
@@ -369,7 +372,7 @@ end function;
 
 // Parse a NUL-terminated string from `bytes`. A NUL byte must come before `epos`.
 define not-inline function parse-nul-terminated-string
-    (bytes, bpos, epos) => (_ :: <string>?, pos :: <integer>)
+    (bytes, bpos, epos) => (_ :: <string?>, pos :: <integer>)
   let v = make(<stretchy-vector>);
   iterate loop (i = bpos)
     if (i >= epos)
@@ -387,8 +390,8 @@ end function;
 // Parse the version 2 and 3 footer, which gives a rule for computing local time changes
 // after the last transition time. The rule is specified here:
 // https://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap08.html
-define function decode-footer (subzones, bytes, bpos, epos) => ()
+define function decode-footer (transitions, bytes, bpos, epos) => ()
   // TODO: parse the footer. Looks somewhat involved so I'll put it off until more basic
   // features that allow replacing the current date library are done. Probably not going
-  // to be able to just add subzones since times can be billions of years in the future.
+  // to want to just add transitions since times can be thousands of years in the future.
 end function;

@@ -1,7 +1,8 @@
 Module: %time
 Synopsis: Time zones implementation
 
-// Returns the full name of the zone. Ex: "America/New York"
+// Returns the full name of the zone. Ex: "America/New_York"
+// See also: `zone-abbreviation`.
 define sealed generic zone-name (zone :: <zone>) => (name :: <string>);
 
 // Returns the local time zone, according to the operating system.
@@ -20,11 +21,10 @@ define sealed generic zone-offset-seconds
 define sealed generic zone-offset-string
     (zone :: <zone>, #key time) => (offset :: <string>);
 
-// Returns the short name of `zone`. The abbreviation is symbolic if possible
-// (ex: "EDT", "UTC") and otherwise is the result of calling
-// zone-offset-string. For `<aware-zone>` a time should be provided since the
-// abbreviation may differ over time. If not provided, the current time is
-// used.
+// Returns the short name of `zone`.  The abbreviation is symbolic if possible (Ex:
+// "EDT", "UTC") and otherwise is the result of calling zone-offset-string.  For
+// `<aware-zone>` a time should be provided since the abbreviation may differ over time.
+// If not provided, the current time is used.
 define generic zone-abbreviation
     (zone :: <zone>, #key time) => (abbrev :: <string>);
 
@@ -36,40 +36,73 @@ define generic zone-daylight-savings?
     (zone :: <zone>, #key time) => (dst? :: <boolean>);
 
 
-// RFC 8536 (TZif) min and max tz offset values, in seconds.
-define constant $min-offset-seconds = -25 * 60 * 60 + 1;
-define constant $max-offset-seconds =  26 * 60 * 60 - 1;
+// RFC 9636 (TZif) min and max TZ offset values, in seconds.
+define constant $min-offset-seconds = -25 * 60 * 60 + 1; // -89999
+define constant $max-offset-seconds =  26 * 60 * 60 - 1; //  93599
 
 define inline function check-offset (offset :: <integer>)
   if (offset < $min-offset-seconds | offset > $max-offset-seconds)
-    time-error("Time zone offsets must be seconds in the range (%d, %d), got %=",
+    time-error("Time zone offsets must be seconds in the range [%d, %d], got %=",
                $min-offset-seconds, $max-offset-seconds, offset);
   end;
 end function;
 
-// A <subzone> represents the values for a timezone over a period of time
-// starting at subzone-start-time and ending when a newer <subzone> shadows it.
-define class <subzone> (<object>)
-  // This can probably just be a number of minutes or seconds. TODO
-  constant slot subzone-start-time :: <time>, required-init-keyword: start-time:;
-  constant slot subzone-offset-seconds :: <integer>, required-init-keyword: offset-seconds:;
-  constant slot subzone-abbrev :: <string>, required-init-keyword: abbrev:;
-  constant slot subzone-dst? :: <boolean>, required-init-keyword: dst?:;
+// A <transition> represents a change in the attributes of a zone that begins at a
+// particular UTC time and ends when a later <transition> (if any) shadows it.
+define class <transition> (<object>)
+  // Time this transition takes effect, as a number of seconds since the POSIX epoch,
+  // including leap seconds. (Since I believe that to be equivalent to UTC time, that's
+  // what I've named it. -cgay) The minumum conforming value is -2^59 or
+  // -#x800_0000_0000_0000, which can cause overflows when converted to microseconds, so
+  // the minimum value we store here is floor/($minimum-time.%microseconds, 1_000_000).
+  constant slot %utc-seconds :: <integer>,
+    required-init-keyword: utc-seconds:;
+  constant slot %offset-seconds :: <integer>,
+    required-init-keyword: offset-seconds:;
+  // RFC 9636, section 4: Time zone designations MUST consist of at least three (3) and
+  // no more than six (6) ASCII characters from the set of alphanumerics, "-", and "+".
+  constant slot %abbreviation :: <string>,
+    required-init-keyword: abbreviation:;
+  constant slot %dst? :: <boolean>,
+    required-init-keyword: dst?:;
 end class;
 
-define method initialize (subzone :: <subzone>, #key offset-seconds :: <integer>)
+define method initialize (transition :: <transition>, #key offset-seconds :: <integer>)
   check-offset(offset-seconds);
 end method;
 
-define method print-object (subzone :: <subzone>, stream :: <stream>) => ()
-  local method doit ()
-          format(stream, "%s %s offset: %d dst: %s",
-                 subzone.subzone-start-time, subzone.subzone-abbrev,
-                 subzone.subzone-offset-seconds,
-                 iff(subzone.subzone-dst?, "yes", "no"));
-        end;
+define method print-object (transition :: <transition>, stream :: <stream>) => ()
+  let offset = transition.%offset-seconds;
+  local
+    method safe-time (seconds, offset)
+      // It is possible for overflow to occur when applying the offset. Let's not die
+      // horribly.
+      block ()
+        make(<time>, microseconds: seconds * 1_000_000 + offset * 1_000_000)
+      exception (<arithmetic-overflow-error>)
+        format-to-string("%d seconds UTC", seconds + offset)
+      end
+    end method,
+    method doit ()
+      // This output is designed to be useful for our tzifdump utility.
+      format(stream, "%s = %s %-4s %6s dst: %s",
+             with-output-to-string (s)
+               let t = safe-time(transition.%utc-seconds, 0);
+               format-time(s, "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}Z", t);
+             end,
+             with-output-to-string (s)
+               let t = safe-time(transition.%utc-seconds, offset);
+               let z = make(<naive-zone>, offset: offset);
+               format-time(s, "{yyyy}-{mm}-{dd}T{HH}:{MM}:{SS}{offset}", t, zone: z);
+             end,
+             transition.%abbreviation,
+             with-output-to-string (s)
+               %format-zone-offset(s, offset, #f, #f);
+             end,
+             iff(transition.%dst?, "yes", "no"));
+    end method;
   iff(*print-escape?*,
-      printing-object(subzone, stream) doit() end,
+      printing-object(transition, stream) doit() end,
       doit());
 end method;
 
@@ -81,7 +114,7 @@ end class;
 // time.
 define class <naive-zone> (<zone>)
   constant slot %offset-seconds :: <integer>, required-init-keyword: offset-seconds:;
-  constant slot %abbreviation :: <string>?, init-keyword: abbreviation:;
+  constant slot %abbreviation :: <string?>, init-keyword: abbreviation:;
 end class;
 
 define method initialize (zone :: <naive-zone>, #key offset-seconds :: <integer>)
@@ -100,23 +133,18 @@ define class <aware-zone> (<zone>)
   // The events describing how this zone differed from UTC over different time
   // periods, ordered newest first because the common case is assumed to be
   // asking about recent times.
-  constant slot subzones :: <vector>, // of <subzone>
-    required-init-keyword: subzones:;
+  constant slot %transitions :: <vector>, // of <transition>
+    required-init-keyword: transitions:;
 end class;
 
-define method initialize (zone :: <aware-zone>, #key subzones :: <vector>, #all-keys)
-  // If you remove this check, also update zone-subzones, which assumes at least one
-  // subzone.
-  if (empty?(subzones))
-    time-error("aware time zones must have at least one subzone");
-  end;
+define method initialize (zone :: <aware-zone>, #key transitions :: <vector>, #all-keys)
   let prev-start-time = #f;
-  for (subzone in subzones)
-    let start-time = subzone.subzone-start-time;
+  for (transition in transitions)
+    let start-time = transition.%utc-seconds;
     if (prev-start-time & prev-start-time <= start-time)
-      time-error("Subzone start time (%s) for %s is invalid; it must be older than"
-                   " the subzone that preceded it, %s.",
-                 start-time, subzone, prev-start-time);
+      time-error("Transition start time (%s) for %s is invalid; it must be older than"
+                   " the transition that preceded it, %s.",
+                 start-time, transition, prev-start-time);
     end;
     prev-start-time := start-time;
   end;
@@ -125,16 +153,16 @@ end method;
 define method print-object (zone :: <aware-zone>, stream :: <stream>) => ()
   if (*print-escape?*)
     printing-object(zone, stream)
-      format(stream, "%s, %d subzones", zone.zone-name, zone.subzones.size);
+      format(stream, "%s, %d transitions", zone.zone-name, zone.%transitions.size);
     end;
   else
-    format(stream, "%s, %d subzones", zone.zone-name, zone.subzones.size);
+    format(stream, "%s, %d transitions", zone.zone-name, zone.%transitions.size);
   end;
 end method;
 
 define method dump-zone (zone :: <aware-zone>) => ()
   format-out("%s\n", zone);
-  for (sub in zone.subzones using backward-iteration-protocol,
+  for (sub in zone.%transitions using backward-iteration-protocol,
        first? = #t then #f)
     // Skip first zone, which is there for internal reasons. See decode-tzif-data-block.
     if (~first?)
@@ -149,7 +177,7 @@ define constant $utc :: <naive-zone>
          abbreviation: "UTC",
          offset-seconds: 0);
 
-define variable *local-time-zone* :: <zone>? = #f;
+define variable *local-time-zone* :: <zone?> = #f;
 
 define constant $local-time-zone-lock = make(<lock>);
 
@@ -161,77 +189,95 @@ define method local-time-zone () => (zone :: <zone>)
       end
 end method;
 
-define function zone-subzone
-    (zone :: <aware-zone>, time :: <time>) => (_ :: <subzone>)
-  let subs = zone.subzones;
-  let len :: <integer> = subs.size;
-  // Subzones are in order with newest transition first.
-  iterate loop (i :: <integer> = 0)
-    if (i < len)
-      let subzone :: <subzone> = subs[i];
-      if (time >= subzone.subzone-start-time)
-        subzone
+// Find the transition in `zone` that corresponds to the transition time `seconds`, which is
+// seconds since the POSIX epoch.  If `seconds` is false then current time is assumed and
+// the latest transition is returned. Signals `<time-error>` if no transition can be found.
+define function zone-transition
+    (zone :: <aware-zone>, seconds :: <integer?>) => (z :: <transition>)
+  let subs = zone.%transitions;     // In order, newest transition first.
+  if (~seconds)
+    subs[0]
+  else
+    let len :: <integer> = subs.size;
+    iterate loop (i :: <integer> = 0)
+      if (i < len)
+        let transition :: <transition> = subs[i];
+        if (seconds >= transition.%utc-seconds)
+          transition
+        else
+          loop(i + 1)
+        end
       else
-        loop(i + 1)
-      end
-    else
-      // We effectively extend the oldest subzone infinitely into the past.
-      // This is consistent with this text from the tzfile man page:
-      //   "Also, if there is at least one transition, time type 0 is associated with the
-      //   time period from the indefinite past up to but not including the earliest
-      //   transition time."
-      // We assume `initialize(<aware-zone>)` requires at least one zone, which may change
-      // once I implement the version 2+ TZif footer record.
-      subs[subs.size - 1]
-    end
-  end iterate
+        // We effectively extend the oldest transition infinitely into the past.
+        // This is consistent with this text from the tzfile man page:
+        //   "Also, if there is at least one transition, time type 0 is associated with the
+        //   time period from the indefinite past up to but not including the earliest
+        //   transition time."
+        // We assume `initialize(<aware-zone>)` requires at least one zone, which may change
+        // once I implement the version 2+ TZif footer record.
+        subs[subs.size - 1]
+      end if
+    end iterate
+  end if
 end function;
 
 define method zone-offset-seconds
-    (zone :: <naive-zone>, #key time) => (minutes :: <integer>)
+    (zone :: <naive-zone>, #key time :: <time?>) => (seconds :: <integer>)
+  ignore(time);
   zone.%offset-seconds
 end method;
 
 define method zone-offset-seconds
-    (zone :: <aware-zone>, #key time :: <time> = time-now())
- => (minutes :: <integer>)
-  subzone-offset-seconds(zone-subzone(zone, time))
+    (zone :: <aware-zone>, #key time :: <time?>)
+ => (seconds :: <integer>)
+  %zone-offset-seconds(zone, time & time.%microseconds)
+end method;
+
+define method %zone-offset-seconds
+    (zone :: <naive-zone>, micros :: <integer?>) => (seconds :: <integer>)
+  ignore(micros);
+  zone.%offset-seconds
+end method;
+
+define method %zone-offset-seconds
+    (zone :: <aware-zone>, micros :: <integer?>) => (seconds :: <integer>)
+  %offset-seconds(zone-transition(zone, micros))
 end method;
 
 define method zone-abbreviation
-    (zone :: <naive-zone>, #key time :: <time> = time-now())
+    (zone :: <naive-zone>, #key time :: <time?>)
  => (abbrev :: <string>)
   zone.%abbreviation | zone.zone-name
 end method;
 
 define method zone-abbreviation
-    (zone :: <aware-zone>, #key time :: <time> = time-now())
+    (zone :: <aware-zone>, #key time :: <time?>)
  => (abbrev :: <string>)
-  subzone-abbrev(zone-subzone(zone, time))
+  %abbreviation(zone-transition(zone, time & time.%microseconds))
 end method;
 
 define method zone-daylight-savings?
-    (zone :: <naive-zone>, #key time :: <time> = time-now())
+    (zone :: <naive-zone>, #key time :: <time?>)
  => (dst? :: <boolean>)
   #f
 end method;
 
 define method zone-daylight-savings?
-    (zone :: <aware-zone>, #key time :: <time> = time-now())
+    (zone :: <aware-zone>, #key time :: <time?>)
  => (dst? :: <boolean>)
-  subzone-dst?(zone-subzone(zone, time))
+  %dst?(zone-transition(zone, time & time.%microseconds))
 end method;
 
-define /* inline */ function offset-to-string
+define function offset-to-string
     (offset :: <integer>) => (_ :: <string>)
-  if (offset = 0)
+  if (offset == 0)
     "+00:00"                    // frequent case? avoid allocation.
   else
-    let (hours, minutes) = floor/(abs(offset), 60.0);
+    let (hours, minutes) = floor/(abs(offset), 60);
     concatenate(if (offset < 0) "-" else "+" end,
-                integer-to-string(as(<integer>, hours), size: 2),
+                integer-to-string(hours, size: 2),
                 ":",
-                integer-to-string(as(<integer>, minutes), size: 2))
+                integer-to-string(minutes, size: 2))
   end
 end function;
 
@@ -247,7 +293,7 @@ end method;
 // and 'mm' are hours and minutes. If `time` is supplied then the offset at
 // that time is used, otherwise the offset at the current time is used.
 define method zone-offset-string
-    (zone :: <aware-zone>, #key time :: <time>?) => (offset :: <string>)
+    (zone :: <aware-zone>, #key time :: <time?>) => (offset :: <string>)
   offset-to-string(zone-offset-seconds(zone, time: time | time-now()))
 end method;
 
@@ -258,7 +304,7 @@ end method;
 define variable *zones* :: <string-table> = make(<string-table>);
 
 // Find a time zone by name. The `zones` parameter is intended for use by tests.
-define function find-zone (name :: <string>, #key zones) => (zone :: <zone>?)
+define function find-zone (name :: <string>, #key zones) => (zone :: <zone?>)
   element(zones | *zones*, name, default: #f)
 end function;
 

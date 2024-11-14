@@ -7,7 +7,7 @@ define interface-specification-suite time-specification-suite ()
   sealed generic function compose-time
       (<integer>, <month>, <integer>, <integer>, <integer>, <integer>, <integer>, #"key", #"zone")
    => (<time>);
-  sealed generic function time-components
+  sealed generic function decompose-time
       (<time>, #"key", #"zone")
    => (<integer>, <month>, <integer>, <integer>, <integer>, <integer>, <integer>, <day>);
   constant $epoch :: <time>;
@@ -124,14 +124,14 @@ define sideways method make-test-instance
     (class == <aware-zone>) => (zone :: <aware-zone>)
   make(<aware-zone>,
        name: "make-test-instance(<aware-zone>)",
-       subzones: vector(make(<subzone>,
-                             start-time: $epoch,
-                             offset-seconds: 60 * 60,
-                             abbrev: "x",
-                             dst?: #t)))
+       transitions: vector(make(<transition>,
+                                utc-seconds: $epoch.to-utc-seconds,
+                                offset-seconds: 60 * 60,
+                                abbreviation: "x",
+                                dst?: #t)))
 end method;
 
 define sideways method make-test-instance
     (class == <time>) => (time :: <time>)
-  make(<time>, days: 0, nanoseconds: 0)
+  $epoch
 end method;
